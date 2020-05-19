@@ -13,7 +13,7 @@ Future versions will include a conversion function from other formats.
 ## Functionalities
 
 ### Basics
-```
+```Python
 # Store and descibe your position
 work = Pos(50.127198, 8.665562, desc='Campus building')
 print(f'I work at {work.coordinates()}')
@@ -30,7 +30,7 @@ haversine(work, work_displaced)
 
 ### Triangulation and Multilateration
 To fix a position both methods rely on knowledge about the positon and bearing to 2 (triangulation) or position and distance to 3 (multilateration) stations.
-```
+```Python
 # Save some known locations (stations)
 stations = {1:Pos(50.116135, 8.670277, 'Opernturm'),
             2:Pos(50.112836, 8.666753, 'Deka tower'),
@@ -38,12 +38,12 @@ stations = {1:Pos(50.116135, 8.670277, 'Opernturm'),
             }
 ```
 In trigonometry and geometry, triangulation is the process of determining the location of a point by forming triangles to it from known points. ([Wikipedia](https://en.wikipedia.org/wiki/Triangulation))
-```
+```Python
 # Get your position from bearings to two stations
 triangulate(stations[1], 164.71, stations[3], 192.22)
 ```
 True range multilateration is a method to determine the location of a movable vehicle or stationary point in space using multiple ranges (stations) between the vehicle/point and multiple spatially-separated known locations. ([Wikipedia](https://en.wikipedia.org/wiki/Multilateration))
-```
+```Python
 # Get your position from bearings at least 3 stations (you can use more)
 #               position,      distance
 multilaterate([(stations[1],  1.275251),  
