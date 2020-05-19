@@ -14,7 +14,8 @@ from scipy.optimize import minimize
 class Pos():
     """Class handling a single nautical (lat, lon) position
     """
-    def __init__(self, lat: str or float, lon: str or float, desc:str=None):
+    def __init__(self, lat: str or float, lon: str or float, 
+                 desc:str=None, upid:str=None):
         """
         Parameters
         ----------
@@ -24,11 +25,14 @@ class Pos():
             ISO 6709 longitude: ±DDD.D (e.g. +008.66370).
         desc : str, optional
             Description or name of the position. The default is None.
+        desc : str, optional
+            Unique position ID (upid). The default is None.
         """
         self.lat = lat
         self.lon = lon
         self.convert_coordinates()
         self.desc = desc
+        self.upid = upid
         assert isinstance(self.lat, float) and isinstance(self.lon, float)
         assert -90 <= self.lat <= 90, 'Latitude out of range!'
         assert -180 <= self.lon <= 180, 'Longitude out of range!'
@@ -145,6 +149,22 @@ def bearing(pos1:Pos, pos2:Pos, correction:float=0) -> float:
     return bearing + correction
 
 
+def opposite_bearing(bearing1:float) -> float:
+    """Return the oppisite bearing, e.g. 90 -> 270
+    
+    Parameters
+    ----------
+    bearing1 : float
+        Bearing in degrees.
+
+    Returns
+    -------
+    bearing : float
+        Opposite bearing in degrees.
+    """
+    return bearing1 - 180*(bearing1 > 180) + 180*(bearing1 <= 180)
+
+
 def angle_between_bearings(bearing1:float, bearing2:float) -> float:
     """Return angle between two bearings
     
@@ -166,20 +186,28 @@ def angle_between_bearings(bearing1:float, bearing2:float) -> float:
     return min(abs_diff, abs(360 - abs_diff))
 
 
-def opposite_bearing(bearing1:float) -> float:
-    """Return the oppisite bearing, e.g. 90 -> 270
+def nearest_stations(pos:Pos, stations:list, radius:float=np.inf) -> list:
+    """Return nearest stations to a given position
     
     Parameters
     ----------
-    bearing1 : float
-        Bearing in degrees.
+    pos : TYPE
+        Center position.
+    stations : list
+        List of Pos objects.
+    radius : float, optional
+        Only show stations within radius. The default is np.inf.
 
     Returns
     -------
-    bearing : float
-        Opposite bearing in degrees.
+    list
+        List of nearest stations sorted by distance (ASC).
+
     """
-    return bearing1 - 180*(bearing1 > 180) + 180*(bearing1 <= 180)
+    distances = [haversine(pos, s) for s in stations]
+    stations = np.array(list(zip(stations, distances)))
+    stations = stations[stations[:,1].argsort()]
+    return stations[stations[:,1] <= radius]
 
 
 def triangulate(station1:Pos, bearing1:float, station2:Pos, bearing2:float) -> Pos:
@@ -265,25 +293,39 @@ if __name__ == '__main__':
     ### Basics
     # Store and descibe your position
     work = Pos(50.127198, 8.665562, desc='Campus building')
+    print(f'Work is here: {work.coordinates()}')
+    
     # Get relative position heading 90 degrees 12 kilometers away
     work_displaced = work.displace(90, 12)
+    
     # Get bearing to position
     bearing(work, work_displaced)
+    
     # Get distance to position
     haversine(work, work_displaced)
     
-    ### Triangulation and Multilateration
-    stations = {1:Pos(50.116135, 8.670277, 'Opernturm'),
-                2:Pos(50.112836, 8.666753, 'Deka tower'),
-                3:Pos(50.110347, 8.659873, 'Volksbank tower')
-                }
+    # Consider the following known stations
+    stations = [Pos(50.116135, 8.670277, 'Opernturm'),
+                Pos(50.112836, 8.666753, 'Deka tower'),
+                Pos(50.110347, 8.659873, 'Volksbank tower')
+                ]
+    
+    # Get the nearest stations within a radius around you position
+    nearest = nearest_stations(work, stations, radius=1.7)
+    print(f'{[(p.desc, d) for p, d in nearest]}')
     
     # Get your position from bearings to two stations
-    triangulate(stations[1], 164.71, stations[3], 192.22).coordinates()
+    triangulate(stations[0], 164.71, stations[2], 192.22).coordinates()
     
     # Get your position from bearings at least 3 stations (you can use more)
     #               position,      distance
-    multilaterate([(stations[1],  1.275251),  
-                   (stations[2],  1.599237),  
-                   (stations[3],  1.917145)]).coordinates()
+    multilaterate([(stations[0],  1.275251),  
+                   (stations[1],  1.599237),  
+                   (stations[2],  1.917145)]).coordinates()
+    
+
+    
+    
+    
+    
     
