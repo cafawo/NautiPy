@@ -42,7 +42,7 @@ In trigonometry and geometry, triangulation is the process of determining the lo
 # Get your position from bearings to two stations
 triangulate(stations[1], 164.71, stations[3], 192.22)
 ```
-True range multilateration is a method to determine the location of a movable vehicle or stationary point in space using multiple ranges (stations) between the vehicle/point and multiple spatially-separated known locations. ([Wikipedia](https://en.wikipedia.org/wiki/Triangulation))
+True range multilateration is a method to determine the location of a movable vehicle or stationary point in space using multiple ranges (stations) between the vehicle/point and multiple spatially-separated known locations. ([Wikipedia](https://en.wikipedia.org/wiki/Multilateration))
 ```
 # Get your position from bearings at least 3 stations (you can use more)
 #               position,      distance
