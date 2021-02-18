@@ -3,7 +3,7 @@ NautiPy is an open-source Python library for nautical navigation applications.
 
 
 ## ISO 6709 Coordinates
-The library uses the ISO 6709 standard for GPS coordinates without left padding of zeros, i.e.
+The library uses the ISO 6709 standard for GPS coordinates without left padding zeros, i.e.
 * Latitude: ±DD.D  (e.g. +50.12257)
 * Longitude: ±DDD.D (e.g. +8.66370)
 
