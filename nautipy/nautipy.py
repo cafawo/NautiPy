@@ -31,7 +31,6 @@ class Pos():
         """
         self.lat = lat
         self.lon = lon
-        self.convert_coordinates()
         self.desc = desc
         self.upid = upid
         assert isinstance(self.lat, float) and isinstance(self.lon, float)
@@ -50,15 +49,6 @@ class Pos():
             Latitude, Longitude.
         """
         return (self.lat, self.lon)
-        
-        
-    def convert_coordinates(self) -> None:
-        """ToDO: Convert GPS input format to ISO 6709
-        
-        """
-        #direction = {'N':1, 'S':-1, 'E': 1, 'W':-1}
-        self.lat = self.lat 
-        self.lon = self.lon
         
         
     def displace(self, heading:float, distance:float):
