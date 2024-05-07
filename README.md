@@ -50,7 +50,7 @@ stations = [Pos(50.116135, 8.670277, 'Opernturm'),
             Pos(50.110347, 8.659873, 'Volksbank tower')
             ]
 
-# Get the nearest stations within a radius around you position
+# Get the nearest stations within a radius around your position
 nearest = nearest_stations(work, stations, radius=1.7)
 print(f'{[(p.desc, d) for p, d in nearest]}')
 ```
