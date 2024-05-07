@@ -7,7 +7,20 @@ The library uses a float representation of GPS coordinates, based on the ISO 670
 * Latitude: ±DD.D  (e.g. +50.12257)
 * Longitude: ±DDD.D (e.g. +8.66370)
 
-Future versions will include a conversion function from other formats.
+### Coordinate Conversion
+
+The `convert_coordinates` function allows for conversion between various GPS input formats to ISO 6709 decimal degrees. Supported input formats include:
+- **Degrees, Minutes, Seconds (DMS):** e.g. `"N 50° 7' 20.9122"`, `"W 8° 39' 56.52"`
+- **Degrees and Decimal Minutes (DMM):** e.g. `"50° 7.34854N"`, `"8° 39.942W"`
+- **Decimal Degrees (DD):** e.g. `"+50.12257"`, `"-8.66570"`
+
+Example usage:
+```Python
+# Convert different formats to ISO 6709 (decimal degrees)
+print(convert_coordinates("+50.12257", "-8.66570", "DD"))
+print(convert_coordinates("N 50° 7' 20.9122", "W 8° 39' 56.52", "DMS"))
+print(convert_coordinates("50° 7.34854N", "8° 39.942W", "DMM"))
+```
 
 
 ## Functionalities
@@ -57,7 +70,7 @@ multilaterate([(stations[0],  1.275251),
 Compare both positions to work, i.e. (50.127198, 8.665562).
 
 
-## Export Capabilities
+### Export
 
 NautiPy includes an `export` function to convert position data into GeoJSON format for easy use in GIS software and mapping services. It can save the output to a file or return the GeoJSON string.
 
