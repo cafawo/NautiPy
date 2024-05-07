@@ -1,3 +1,7 @@
+![nauitpy](https://github.com/cafawo/NautiPy/assets/21214530/f051963d-2adf-49f3-99c8-737c1e877818)
+
+
+
 # NautiPy
 NautiPy is an open-source Python library for nautical navigation applications.
 
