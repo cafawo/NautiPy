@@ -8,6 +8,7 @@ LICENSE.txt
 import numpy as np
 from math import radians, cos, sin, asin, sqrt, degrees, atan2
 from scipy.optimize import minimize
+import json
 
 
 
@@ -25,7 +26,7 @@ class Pos():
             ISO 6709 longitude: ±DDD.D (e.g. +008.66370).
         desc : str, optional
             Description or name of the position. The default is None.
-        desc : str, optional
+        upid : str, optional
             Unique position ID (upid). The default is None.
         """
         self.lat = lat
@@ -285,7 +286,55 @@ def multilaterate(stations:list):
                         options={'ftol':1e-5, 'maxiter': 1e+6})
     # Return the position object
     return Pos(position.x[0], position.x[1], desc=f'Error = {position.fun}')
-    
+
+
+def export(positions, format: str = "geojson", save_as: str = None):
+    """Export positions to a specified format and optionally save to a file.
+
+    Parameters
+    ----------
+    positions : list
+        List of Pos objects.
+    format : str, optional
+        Export format, currently supports 'geojson'. The default is "geojson".
+    save_as : str, optional
+        File name to save the exported data. If None, data is returned instead.
+
+    Returns
+    -------
+    str
+        The exported data in the specified format if not saved to a file.
+    """
+    if format == "geojson":
+        features = []
+        for pos in positions:
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [pos.lon, pos.lat]
+                },
+                "properties": {
+                    "description": pos.desc,
+                    "upid": pos.upid
+                }
+            })
+
+        geojson = {
+            "type": "FeatureCollection",
+            "features": features
+        }
+
+        geojson_str = json.dumps(geojson, indent=2)
+
+        if save_as:
+            with open(save_as, "w", encoding="utf-8") as file:
+                file.write(geojson_str)
+            return f"GeoJSON data saved to {save_as}"
+        else:
+            return geojson_str
+    else:
+        raise ValueError(f"Unsupported format: {format}")
     
     
 #%% README.md
@@ -323,6 +372,8 @@ if __name__ == '__main__':
                    (stations[1],  1.599237),  
                    (stations[2],  1.917145)]).coordinates()
     
+    # Export your positions to a geojson file
+    print(export(stations, save_as="example.geojson"))
 
     
     
