@@ -337,7 +337,7 @@ def multilaterate(stations:list):
     return Pos(position.x[0], position.x[1], desc=f'Error = {position.fun}')
 
 
-def export(positions, format: str = "geojson", save_as: str = None):
+def export_positions(positions, format: str = "geojson", filepath: str = None):
     """Export positions to a specified format and optionally save to a file.
 
     Parameters
@@ -346,7 +346,7 @@ def export(positions, format: str = "geojson", save_as: str = None):
         List of Pos objects.
     format : str, optional
         Export format, currently supports 'geojson'. The default is "geojson".
-    save_as : str, optional
+    filepath : str, optional
         File name to save the exported data. If None, data is returned instead.
 
     Returns
@@ -364,7 +364,7 @@ def export(positions, format: str = "geojson", save_as: str = None):
                     "coordinates": [pos.lon, pos.lat]
                 },
                 "properties": {
-                    "description": pos.desc,
+                    "desc": pos.desc,
                     "upid": pos.upid
                 }
             })
@@ -376,15 +376,42 @@ def export(positions, format: str = "geojson", save_as: str = None):
 
         geojson_str = json.dumps(geojson, indent=2)
 
-        if save_as:
-            with open(save_as, "w", encoding="utf-8") as file:
+        if filepath:
+            with open(filepath, "w", encoding="utf-8") as file:
                 file.write(geojson_str)
-            return f"GeoJSON data saved to {save_as}"
+            return f"GeoJSON data saved to {filepath}"
         else:
             return geojson_str
     else:
         raise ValueError(f"Unsupported format: {format}")
     
+
+def import_positions(filepath: str) -> list:
+    """
+    Load GeoJSON file and convert it to a list of Pos objects.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to the GeoJSON file.
+
+    Returns
+    -------
+    list
+        List of Pos objects.
+    """
+    with open(filepath, 'r') as file:
+        geojson_data = json.load(file)
+
+    positions = []
+    for feature in geojson_data['features']:
+        lon, lat = feature['geometry']['coordinates']
+        description = feature['properties'].get('desc', None)
+        upid = feature['properties'].get('upid', None)
+        positions.append(Pos(lat, lon, desc=description, upid=upid))
+
+    return positions
+
     
 #%% README.md
 if __name__ == '__main__':
@@ -427,6 +454,9 @@ if __name__ == '__main__':
                    (stations[2],  1.917145)]).coordinates()
     
     # Export your positions to a geojson file
-    print(export(stations, save_as="example.geojson"))
+    print(export_positions(stations, filepath="example.geojson"))
+
+    # Load positions
+    stations_reloaded = import_positions(filepath="example.geojson")
     
     
