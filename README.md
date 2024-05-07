@@ -55,3 +55,27 @@ multilaterate([(stations[0],  1.275251),
                (stations[2],  1.917145)]).coordinates()
 ```
 Compare both positions to work, i.e. (50.127198, 8.665562).
+
+
+## Export Capabilities
+
+NautiPy includes an `export` function to convert position data into GeoJSON format for easy use in GIS software and mapping services. It can save the output to a file or return the GeoJSON string.
+
+Example Usage
+
+```python
+# List of positions
+positions = [
+    Pos(50.127198, 8.665562, desc='Campus building'),
+    Pos(50.116135, 8.670277, desc='Opernturm'),
+    Pos(50.112836, 8.666753, desc='Deka tower'),
+    Pos(50.110347, 8.659873, desc='Volksbank tower')
+]
+
+# Export and save to a file
+export(positions, save_as="positions.geojson")
+
+# Or get the GeoJSON string directly
+geojson_string = export(positions)
+print(geojson_string)
+
