@@ -9,7 +9,7 @@ import numpy as np
 from math import radians, cos, sin, asin, sqrt, degrees, atan2
 from scipy.optimize import minimize
 import json
-
+import re
 
 
 class Pos():
@@ -87,7 +87,56 @@ class Pos():
         lon_new = (lon_new + 3 * np.pi) % (2 * np.pi) - np.pi
         return Pos(degrees(lat_new), degrees(lon_new))
             
-        
+
+def convert_coordinates(lat, lon, format: str = "DMS"):
+    """
+    Convert various GPS input formats to decimal degrees (ISO 6709).
+    Supported formats:
+    - Degrees, Minutes, Seconds (DMS): "N 50° 7' 20.9122"", "W 8° 39' 56.52""
+    - Degrees and Decimal Minutes (DMM): "50° 7.34854N", "8° 39.942W"
+    - Decimal Degrees (DD): "+50.12257", "-8.66570"
+    
+    Parameters:
+    - lat (str or float): Latitude in various formats.
+    - lon (str or float): Longitude in various formats.
+    - format (str): Input coordinate format, one of "DMS", "DMM", or "DD".
+
+    Returns:
+    - tuple: (latitude, longitude) in decimal degrees (ISO 6709).
+    """
+    def dms_to_dd(d, m, s, direction):
+        sign = -1 if direction.upper() in ['S', 'W'] else 1
+        return sign * (d + m / 60 + s / 3600)
+    
+    def ddm_to_dd(d, m, direction):
+        sign = -1 if direction.upper() in ['S', 'W'] else 1
+        return sign * (d + m / 60)
+
+    if format == "DD":
+        return float(lat), float(lon)
+    
+    elif format == "DMS":
+        lat_match = re.match(r"([NS])\s*(\d+)°\s*(\d+)'\s*(\d+\.?\d*)", lat.strip(), re.I)
+        lon_match = re.match(r"([EW])\s*(\d+)°\s*(\d+)'\s*(\d+\.?\d*)", lon.strip(), re.I)
+        if lat_match and lon_match:
+            lat_dd = dms_to_dd(float(lat_match.group(2)), float(lat_match.group(3)), float(lat_match.group(4)), lat_match.group(1))
+            lon_dd = dms_to_dd(float(lon_match.group(2)), float(lon_match.group(3)), float(lon_match.group(4)), lon_match.group(1))
+            return lat_dd, lon_dd
+    
+    elif format == "DMM":
+        lat_match = re.match(r"(\d+)°\s*(\d+\.?\d*)([NS])", lat.strip(), re.I)
+        lon_match = re.match(r"(\d+)°\s*(\d+\.?\d*)([EW])", lon.strip(), re.I)
+        if lat_match and lon_match:
+            lat_dd = ddm_to_dd(float(lat_match.group(1)), float(lat_match.group(2)), lat_match.group(3))
+            lon_dd = ddm_to_dd(float(lon_match.group(1)), float(lon_match.group(2)), lon_match.group(3))
+            return lat_dd, lon_dd
+        else:
+            raise ValueError("Invalid DMM format.")
+    
+    else:
+        raise ValueError("Unsupported coordinate format. Choose 'DD', 'DMS', or 'DMM'.")
+
+
 def haversine(pos1:Pos, pos2:Pos) -> float:
     """Haversine distance
     
@@ -340,9 +389,14 @@ def export(positions, format: str = "geojson", save_as: str = None):
 #%% README.md
 if __name__ == '__main__':
     ### Basics
-    # Store and descibe your position
+    # Store and describe your position
     work = Pos(50.127198, 8.665562, desc='Campus building')
     print(f'Work is here: {work.coordinates()}')
+
+    # Convert different formats to decimal degrees (ISO 6709)
+    print("DD:  Latitude: {:.4f}, Longitude: {:.4f}".format(*convert_coordinates("+50.12257", "-8.66570", "DD")))
+    print("DMS: Latitude: {:.4f}, Longitude: {:.4f}".format(*convert_coordinates("N 50° 7' 20.9122", "W 8° 39' 56.52", "DMS")))
+    print("DMM: Latitude: {:.4f}, Longitude: {:.4f}".format(*convert_coordinates("50° 7.34854N", "8° 39.942W", "DMM")))
     
     # Get relative position heading 90 degrees 12 kilometers away
     work_displaced = work.displace(90, 12)
@@ -374,9 +428,5 @@ if __name__ == '__main__':
     
     # Export your positions to a geojson file
     print(export(stations, save_as="example.geojson"))
-
-    
-    
-    
     
     
