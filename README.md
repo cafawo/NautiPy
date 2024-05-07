@@ -65,7 +65,7 @@ triangulate(stations[0], 164.71, stations[2], 192.22).coordinates()
 ```
 True range multilateration is a method to determine the location of a movable vehicle or stationary point in space using multiple ranges (stations) between the vehicle/point and multiple spatially-separated known locations. ([Wikipedia](https://en.wikipedia.org/wiki/Multilateration))
 ```Python
-# Get your position from bearings at least 3 stations (you can use more)
+# Get your position from distances to at least 3 stations (you can use more)
 #               position,      distance
 multilaterate([(stations[0],  1.275251),  
                (stations[1],  1.599237),  
