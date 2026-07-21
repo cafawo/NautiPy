@@ -87,3 +87,16 @@ export_positions(stations, save_as="positions.geojson")
 # Load positions from a GeoJSON file
 stations_reloaded = import_positions('positions.geojson')
 ```
+
+## Modernization and development plan
+
+The next development phase focuses NautiPy on two areas of added value: effortless, safe coordinate detection/conversion and trustworthy position fixes from bearing and range observations. The examples above describe the historical proof-of-concept API until the relevant roadmap milestones land.
+
+Start here:
+
+- [Coding-agent guide](AGENTS.md)
+- [Product direction](docs/PRODUCT.md)
+- [Coordinate detection and conversion specification](docs/COORDINATES.md)
+- [Implementation roadmap](ROADMAP.md)
+- [Release and distribution plan](docs/RELEASING.md)
+- [Contribution guide](CONTRIBUTING.md)
