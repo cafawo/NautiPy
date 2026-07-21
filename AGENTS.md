@@ -1,141 +1,134 @@
 # NautiPy coding-agent guide
 
-This file is the repository-level operating contract for coding agents and human contributors. Read it before changing code.
+This file is the repository-level operating contract for coding agents and contributors.
 
 ## Read first
 
 1. [Product direction](docs/PRODUCT.md)
-2. [Coordinate input and conversion specification](docs/COORDINATES.md)
-3. [Implementation roadmap](ROADMAP.md)
-4. [Release and distribution plan](docs/RELEASING.md)
-5. [Contributor workflow](CONTRIBUTING.md)
+2. [Architecture and dependency policy](docs/ARCHITECTURE.md)
+3. [Coordinate behavior](docs/COORDINATES.md)
+4. [Implementation roadmap](ROADMAP.md)
+5. [Release and distribution plan](docs/RELEASING.md)
+6. [Contributor workflow](CONTRIBUTING.md)
 
-When these documents disagree, prefer the more specific document. Record intentional changes to product direction in the same pull request as the code that needs them.
+When documents disagree, prefer the more specific document and update the conflicting documentation in the same pull request.
+
+## Clean-slate decision
+
+The repository contains an early experiment, but it has not established a supported public package or API. Treat the existing implementation as reference material only.
+
+For the rewrite:
+
+- do not preserve the old module layout;
+- do not add compatibility wrappers, aliases, deprecation layers, or a migration guide;
+- do not retain incorrect behavior because an old example used it;
+- keep only the project name, MIT license, useful domain ideas, and independently verified reference cases; and
+- begin semantic compatibility promises with the first public release, with a stable contract starting at version 1.0.
+
+It is acceptable—and expected—to delete `setup.py`, the old `nautipy/nautipy.py` implementation, and placeholder tests when the clean package foundation replaces them.
 
 ## Mission
 
-NautiPy should make common nautical-position work easy without hiding uncertainty or silently guessing. Its main value is:
+NautiPy should make coordinate and small-scale navigation work unusually easy while remaining explicit about ambiguity and numerical limits.
 
-- accepting the coordinate formats people actually paste or type;
-- normalizing them into one safe internal representation;
-- converting them into clear output formats;
-- calculating dependable WGS84 navigation primitives; and
-- estimating a position from bearing, range, or mixed observations while returning useful diagnostics.
+Its value is, in order:
 
-NautiPy is not intended to become a general GIS framework.
+1. accept coordinates in the forms people actually paste, type, or receive from devices;
+2. detect, validate, inspect, and convert those formats safely;
+3. provide a small WGS84 navigation API for distance, bearing, destination, and interpolation; and
+4. later provide position fixes from bearings and ranges without forcing scientific dependencies on every user.
+
+NautiPy is not a general GIS framework or a live-navigation system.
 
 ## Core principles
 
-### 1. Ease of use is a feature
+### Ease of use is part of correctness
 
-The simple path must be obvious and require little configuration. Common inputs should work directly:
+The common path should be one obvious function call:
 
 ```python
 from nautipy import parse_position
 
-position = parse_position("50° 7' 19.2\" N, 8° 39' 56.5\" E")
+position = parse_position("50° 7' 19.2\" N; 8° 39' 56.5\" E")
 ```
 
-Advanced users must still have explicit controls for coordinate order, format, units, Earth model, tolerances, and uncertainty.
+Public functions that consume positions should accept a validated `Position` and, where it stays unambiguous, the same convenient position-like inputs accepted by `parse_position`.
 
-### 2. Be permissive at the input boundary and strict internally
+### Be permissive about presentation, strict about meaning
 
-Normalize harmless differences such as whitespace, Unicode degree/minute/second symbols, hemisphere placement, and decimal separators where they are unambiguous. Once parsed, store validated numeric values in a single canonical representation.
+Normalize whitespace, Unicode symbols, hemisphere placement, and decimal separators only when meaning is preserved. Never silently choose between different valid positions. Raise an actionable ambiguity error instead.
 
-Never silently choose between genuinely different interpretations. Return an ambiguity error that explains the candidates and the argument that resolves them.
+### Keep the package small
 
-### 3. Prefer a small coherent API over broad feature count
+Prefer a coherent top-level API over feature count. Do not add plugin systems, backend abstractions, broad GIS types, dataframe integrations, or framework-style configuration without a demonstrated user need.
 
-Add functionality when it strengthens the coordinate-to-position or observation-to-fix workflows. Do not add unrelated GIS, charting, live-data, or application-framework features.
+### Dependency budget
 
-### 4. Use established algorithms for hard numerical work
+- Coordinate parsing, formatting, validation, data models, GeoJSON, and CLI plumbing use the Python standard library.
+- The initial package foundation has zero runtime dependencies.
+- The navigation layer may add one mature, pure-Python WGS84 geodesic dependency when that layer is implemented.
+- NumPy and SciPy may be added only in a later optional `fix` extra for overdetermined and mixed-observation solvers.
+- Optional dependencies must not be imported during ordinary coordinate use.
+- Do not add dependencies for validation, units, logging, argument parsing, JSON, formatting, HTTP, or development convenience.
 
-Do not maintain hand-written approximations when a mature, well-tested library already provides the geodesic or numerical primitive. Standard-library code is preferred for parsing, validation, formatting, data models, and file handling. A runtime dependency is justified only when it provides substantial correctness or numerical value.
+A dependency is admitted only when it removes substantial correctness or numerical risk and is used directly by a shipped feature.
 
-The expected dependency shape is:
+### Build useful vertical slices
 
-- coordinate parsing and formatting: Python standard library;
-- ellipsoidal geodesics: a mature WGS84 implementation such as GeographicLib;
-- weighted nonlinear fixing: NumPy/SciPy when the solver requires them.
-
-Do not add a runtime dependency for logging, validation, units, command-line parsing, formatting, or simple serialization.
-
-### 5. Avoid stale or fragile requirements
-
-Do not bundle online data, magnetic-declination tables, chart databases, tide/current data, or assumptions tied to a particular external service. Do not require a particular environment manager, editor extension, shell, operating system, or hosted service for local development.
-
-Use current Python packaging standards, but do not pin user dependencies more tightly than correctness requires. Keep support policy in `pyproject.toml`, not duplicated across prose files.
-
-### 6. Make correctness inspectable
-
-A successful fix must be more than a latitude/longitude pair. Return convergence state, residuals, uncertainty or geometry information when available, and warnings for weak or ambiguous geometry. Invalid inputs must raise descriptive exceptions rather than fail through assertions.
-
-## Product boundaries
-
-### In scope
-
-- automatic detection and conversion of common coordinate formats;
-- validated latitude/longitude positions on WGS84;
-- distance, initial bearing, destination, interpolation, and related navigation primitives;
-- bearing-only, range-only, and mixed-observation position fixes;
-- weighted observations, residuals, uncertainty estimates, and geometry diagnostics;
-- nearest-position queries;
-- lightweight GeoJSON interchange;
-- a small command-line interface when it directly improves coordinate conversion or fix inspection;
-- compatibility wrappers for useful parts of the historical API.
-
-### Out of scope unless product direction is deliberately changed
-
-- arbitrary CRS transformation and general GIS analysis;
-- nautical charts, routing, collision avoidance, AIS, vessel control, or live navigation systems;
-- weather, tides, currents, magnetic models, or other time-varying datasets;
-- a complete NMEA sentence-processing stack;
-- GUI, web service, database, or plotting frameworks;
-- privacy/encryption schemes;
-- reimplementing mature geodesic libraries.
+Do not spend a pull request creating an empty package skeleton. Each milestone should leave a small working path that can be installed and demonstrated.
 
 ## Engineering rules
 
-- Use `pyproject.toml` as the packaging and dependency source of truth.
-- Preserve the import name `nautipy`.
-- Keep public values typed and documented. Prefer dataclasses and enums from the standard library where they clarify the API.
-- Store positions as decimal degrees, distances as metres, and bearings as degrees clockwise from true north internally. Convert only at API boundaries.
-- Default to WGS84. Any spherical approximation must be explicitly named and requested.
-- Do not perform network access at import time or during ordinary calculations.
+- Use `pyproject.toml` as the package metadata and dependency source of truth.
+- Use a `src/nautipy/` layout and intentionally define the top-level API.
+- Keep the import name `nautipy`.
+- Use ordinary Python dataclasses, enums, protocols, and exceptions where they clarify behavior.
+- Store latitude/longitude as decimal degrees, distances as metres, and bearings as true degrees internally.
+- Default navigation calculations to WGS84.
 - Do not use `assert` for public input validation.
-- Do not silently swap latitude and longitude.
-- Do not round intermediate calculations for display convenience.
-- Do not expose raw optimizer objects as the public result type.
-- Keep optional integrations outside the core import path.
-- Preserve backwards compatibility through documented wrappers and deprecations where practical; do not preserve incorrect numerical behavior.
+- Do not silently swap latitude and longitude, wrap invalid input, or change units.
+- Do not perform network access during import or calculations.
+- Do not expose raw third-party result or optimizer objects as public API.
+- Keep optional functionality behind clear module and import boundaries.
+- Use standard-library `unittest` unless a concrete testing need justifies another dependency.
+- Avoid generated boilerplate and abstractions that have only one implementation.
 
 ## Agent workflow
 
-1. Inspect the repository and read the documents listed above.
-2. Select the first incomplete roadmap milestone or a clearly scoped issue.
-3. State the intended behavior in tests before or with the implementation.
-4. Make one coherent change. Avoid opportunistic rewrites unrelated to the selected milestone.
-5. Update public documentation and examples whenever behavior changes.
-6. Run the repository's canonical test and package-build commands.
-7. Report remaining limitations, numerical assumptions, and compatibility effects in the pull request.
+1. Read the documents above and select the first incomplete roadmap milestone.
+2. Define observable behavior in tests before or with implementation.
+3. Make one coherent vertical slice; avoid unrelated cleanup.
+4. Update examples and public documentation with the code.
+5. Run the canonical tests, build the wheel and sdist, and test the built wheel.
+6. Report commands run, dependency changes, numerical assumptions, and remaining limitations.
 
-Do not invent requirements that are absent from the product documents. When a decision is necessary, choose the simplest standard approach that preserves correctness and note the decision in the pull request.
+Before version 1.0, breaking changes are allowed when they simplify or correct the emerging public API. Do not build deprecation machinery for unreleased behavior.
 
 ## Definition of done
 
 A change is complete when:
 
-- public behavior is covered by meaningful tests, including error cases;
-- coordinate changes include ambiguous and malformed inputs, not only happy paths;
-- numerical changes include independent reference cases and edge geometry;
+- public behavior and error cases have meaningful tests;
+- coordinate changes cover malformed and ambiguous input;
+- numerical changes include independent reference cases and difficult geometry;
 - the wheel and source distribution build successfully;
-- the built wheel can be installed and imported in a clean environment;
-- documentation matches the public API;
-- no unnecessary runtime dependency has been introduced; and
-- compatibility or deprecation behavior is explicit.
+- the built wheel installs and imports in a clean environment;
+- documentation matches the implemented API;
+- no unnecessary dependency or compatibility layer was introduced; and
+- CI passes on the supported Python range.
 
 ## First assignment
 
-Start with **Milestone 0: packaging and trustworthy baseline** in [ROADMAP.md](ROADMAP.md). Do not begin the new solver before the package builds cleanly, the placeholder failing test is replaced, and continuous integration verifies the installable artifact.
+Implement **Milestone 0: clean package and decimal-degree vertical slice** from [ROADMAP.md](ROADMAP.md).
 
-After Milestone 0, implement **Milestone 1: coordinate intake and conversion** before expanding navigation algorithms. Coordinate usability is the first product differentiator and should establish the public `Position` model used by later milestones.
+The first implementation pull request should:
+
+- remove the legacy packaging, implementation, and placeholder test rather than wrapping them;
+- add `pyproject.toml` and a `src/nautipy/` package;
+- implement the immutable `Position` model, core coordinate exceptions, decimal-degree parsing for text and structured pairs, and canonical decimal formatting;
+- define a small intentional top-level API;
+- use standard-library tests;
+- build and smoke-test the wheel and sdist; and
+- add pull-request CI.
+
+Do not implement legacy aliases, geodesics, DDM/DMS parsing, or the solver in that pull request.
