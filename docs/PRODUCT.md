@@ -1,38 +1,41 @@
 # NautiPy product direction
 
-## One-sentence promise
+## Promise
 
-**NautiPy turns coordinates and imperfect navigation observations into validated positions with a small, understandable Python API.**
+**NautiPy turns real-world coordinate input into validated positions and makes common WGS84 navigation calculations easy through a small Python API.**
 
-The package should feel useful within the first minute, remain explicit when an input is ambiguous, and expose enough diagnostics for users to understand whether a calculated fix is trustworthy.
+The package should be useful within a minute of installation, clear when input is ambiguous, deterministic, offline, and light enough for ordinary scripts.
 
 ## Why this package should exist
 
-Python already has excellent libraries for geodesics, projections, vector navigation, and GIS. NautiPy should not compete by duplicating all of them. Its value is the workflow around those primitives:
+Python already has strong geodesic, projection, and GIS libraries. NautiPy should not duplicate their breadth. Its value is the simple workflow around a position:
 
-1. Accept coordinates in the forms people actually receive them.
-2. Detect and convert those forms safely.
-3. Represent positions consistently.
-4. Combine bearings and ranges into a fix.
-5. Explain the result, its residuals, and its uncertainty.
+1. accept coordinates as people and devices actually express them;
+2. detect, validate, inspect, and convert those forms;
+3. represent positions consistently;
+4. calculate the navigation quantities users commonly need; and
+5. optionally estimate a position from bearings and ranges with diagnostics.
 
-This is a narrower and more approachable problem than general geospatial computing, and it is especially useful for scripts, field data cleanup, education, sensor prototypes, and small navigation tools.
+Coordinate usability is the first differentiator. Position fixing is the later advanced differentiator. General GIS is not the goal.
 
-## Primary users
+## Clean start
 
-- developers receiving coordinates from humans, spreadsheets, logs, devices, or copied text;
-- navigators and engineers calculating positions from known landmarks, bearings, or ranges;
-- educators demonstrating geodesic and position-fixing concepts;
-- data analysts who need a lightweight bridge from messy coordinate text to GeoJSON or numerical analysis;
-- library authors who want a clear position/fix API without adopting a broad GIS framework.
+The old repository code was experimental and did not establish a supported public package. The new package begins with a clean API and version `0.1.0`.
 
-NautiPy is a calculation library, not certified navigation equipment. Documentation must not imply that it replaces regulated or safety-critical systems.
+There will be:
+
+- no compatibility wrappers for `Pos`, `haversine`, `triangulate`, or other experimental names;
+- no deprecation cycle for code that was never released as a supported API;
+- no migration guide from the experimental layout; and
+- no obligation to preserve incorrect formulas or awkward call patterns.
+
+Before version 1.0, the API may change when doing so materially improves simplicity or correctness. Starting at 1.0, documented APIs follow semantic versioning.
 
 ## Product principles
 
 ### Ease of use first
 
-The common path should be one function call:
+The common path is one call and no format declaration:
 
 ```python
 from nautipy import parse_position
@@ -40,34 +43,34 @@ from nautipy import parse_position
 position = parse_position("N 50° 7' 19.2\"; E 8° 39' 56.5\"")
 ```
 
-Users should not need to identify DMS versus decimal degrees before parsing. They should not need NumPy arrays for single positions. They should not need to understand the optimizer to solve a standard fix.
+Users should not need to know whether input is DD, DDM, DMS, ISO 6709, or NMEA before parsing it. They should not need arrays, a configuration object, or a GIS data model for one position.
 
-### Safe automation, not silent guessing
+### Safe automation
 
-NautiPy should automatically handle harmless syntax variation. It must stop and explain when two interpretations would produce different positions.
+NautiPy normalizes harmless syntax differences but never silently chooses between different valid locations.
 
-Examples:
+```python
+parse_position("120, 50", order="auto")  # order is provable: lon/lat
+parse_position("8, 50", order="auto")    # raises an ambiguity error
+```
 
-- `50.12, 8.66` can follow the documented default order `latlon`.
-- `8.66, 50.12` with `order="auto"` is ambiguous and must not be silently swapped.
-- `120.0, 50.0` with `order="auto"` can be identified as `lonlat` because `120.0` cannot be a latitude.
-- `-50 N` is contradictory and should raise an error rather than applying one sign arbitrarily.
+Errors should name the ambiguity and show the argument or syntax that resolves it.
+
+### Lightweight by default
+
+The coordinate layer uses only the Python standard library. The normal navigation package may use one focused pure-Python dependency for correct WGS84 geodesics. Scientific packages belong only in an optional future `fix` extra.
+
+### Small public surface
+
+A user should be able to learn the main package from the top-level namespace. Internal parser tokens, backend objects, and optimizer details remain private.
 
 ### Trustworthy results
 
-Public calculations should default to WGS84 ellipsoidal geodesics. A position fix should return diagnostics, not only coordinates. Weak geometry, competing solutions, high residuals, or non-convergence should be represented explicitly.
+Navigation defaults to WGS84 and true bearings. A future position-fix result must include residuals and geometry/convergence information rather than returning only plausible-looking coordinates.
 
-### Minimal, durable foundations
+## Target workflows
 
-Use the Python standard library for parsing, formatting, data models, JSON, CLI plumbing, and validation. Use mature scientific dependencies for numerical work that should not be reinvented. Avoid online services and bundled datasets that age independently of the package.
-
-### Progressive disclosure
-
-Simple functions should cover simple tasks. Detailed result objects and explicit options should be available without forcing every user to configure them.
-
-## Core workflows
-
-### 1. Parse and normalize a position
+### Parse and normalize
 
 ```python
 from nautipy import parse_position
@@ -79,9 +82,18 @@ p3 = parse_position("+50.12257+008.66570/")
 assert p1 == p2 == p3
 ```
 
-The exact examples and supported variations are specified in [COORDINATES.md](COORDINATES.md).
+### Inspect detection
 
-### 2. Convert coordinate formats
+```python
+from nautipy import inspect_position
+
+result = inspect_position("5007.3542,N,00839.9420,E")
+print(result.position)
+print(result.format)
+print(result.normalizations)
+```
+
+### Convert formats
 
 ```python
 from nautipy import convert_position
@@ -89,161 +101,123 @@ from nautipy import convert_position
 text = convert_position(
     "50.12257, 8.66570",
     to="dms",
-    hemisphere=True,
+    precision=2,
 )
 ```
 
-Conversion should support practical output controls without exposing internal parser details.
+### Calculate navigation values
 
-### 3. Calculate navigation primitives
+Position-taking functions should accept `Position` and documented position-like input:
 
 ```python
-from nautipy import destination, distance, initial_bearing, parse_position
+from nautipy import destination, distance, initial_bearing
 
-start = parse_position("50.12257, 8.66570")
+start = "50.12257, 8.66570"
 end = destination(start, bearing=90, distance=12_000)
 
 metres = distance(start, end)
 degrees_true = initial_bearing(start, end)
 ```
 
-Distances are metres and bearings are true degrees by default. Alternative display units belong at the API boundary.
+Distances are metres and bearings are true degrees by default. Display units are converted at the API boundary.
 
-### 4. Solve a position fix
+### Solve a position fix later
+
+The advanced solver is a later optional capability:
+
+```bash
+python -m pip install "nautipy[fix]"
+```
 
 ```python
-from nautipy import BearingObservation, Position, RangeObservation, solve_fix
+from nautipy.fix import BearingObservation, RangeObservation, solve_fix
 
 result = solve_fix(
-    [
-        BearingObservation(
-            station=Position(50.116135, 8.670277),
-            bearing=164.71,
-            sigma=1.0,
-        ),
-        BearingObservation(
-            station=Position(50.110347, 8.659873),
-            bearing=192.22,
-            sigma=1.0,
-        ),
-        RangeObservation(
-            station=Position(50.112836, 8.666753),
-            distance=1_599.2,
-            sigma=15.0,
-        ),
-    ]
+    bearings=[...],
+    ranges=[...],
 )
 
 print(result.position)
 print(result.residuals)
-print(result.rms_error)
 print(result.warnings)
 ```
 
-The final names may evolve during implementation, but the workflow should remain this direct.
+The exact solver API is not frozen until its milestone is implemented and tested.
 
-## Capabilities to ship
+## First public release: 0.1.0
 
-### Coordinate intake and conversion
-
-- decimal degrees, signed or hemisphere-qualified;
-- degrees and decimal minutes (`ddm`; accept `dmm` as an alias);
-- degrees, minutes, and seconds;
-- common Unicode and ASCII symbol variants;
-- ISO 6709 forms that can be parsed unambiguously;
-- NMEA latitude/longitude fields and pairs, without becoming a full NMEA sentence library;
-- decimal-comma input where separators make the interpretation unambiguous;
-- strings, numeric pairs, mappings with named latitude/longitude fields, and recognized GeoJSON points;
-- explicit coordinate-order controls and informative ambiguity errors;
-- formatting to canonical decimal degrees, DDM, DMS, ISO 6709, and NMEA coordinate fields;
-- an inspection function that reports the detected format and normalization decisions.
-
-### Position and geodesic calculations
+The initial useful release should ship:
 
 - immutable validated `Position` values;
-- inverse calculation: distance and initial/final bearing;
-- direct calculation: destination from position, bearing, and distance;
-- interpolation along a geodesic;
-- nearest-position lookup;
-- clearly named spherical approximations only where they provide a real use case.
+- automatic detection of common coordinate formats;
+- explicit coordinate-order controls and useful ambiguity errors;
+- formatting and conversion among DD, DDM, DMS, ISO 6709, and NMEA fields;
+- parser inspection metadata;
+- WGS84 distance, initial/final bearing, destination, and interpolation;
+- lightweight GeoJSON Point/FeatureCollection interchange;
+- a small `argparse` CLI for conversion and inspection;
+- wheel and source distributions on PyPI;
+- automated tested releases from semantic-version tags; and
+- a conda-forge staged-recipes submission after the PyPI release.
 
-### Position fixing
+The 0.1.0 release does not need the nonlinear fix solver. A focused, polished coordinate-and-navigation package is more useful than a broad unfinished package.
 
-- two-bearing intersection;
-- range-circle intersection with zero, one, or two candidate solutions;
+## Later optional fix capability
+
+A later release may add:
+
+- two-bearing and two-range candidate geometry;
 - overdetermined bearing-only fixes;
-- overdetermined range-only fixes;
+- range-only fixes;
 - mixed bearing/range fixes;
-- optional observation uncertainty and weighting;
-- residuals in the observation's natural unit;
-- convergence state, iteration summary, and objective value;
-- geometry warnings and competing-solution handling;
-- covariance or confidence-region estimates where the geometry and solver support them.
+- observation uncertainty and weighting;
+- residuals in natural units;
+- convergence and geometry diagnostics; and
+- covariance or confidence information where valid.
 
-### Interchange and usability
+NumPy and SciPy are acceptable only inside this optional capability. They are not dependencies of coordinate parsing or ordinary navigation.
 
-- GeoJSON import/export for points and feature collections;
-- compatibility adapters for the useful historical `Pos`, `haversine`, `bearing`, `triangulate`, and `multilaterate` entry points;
-- concise examples and an optional small CLI for conversion and fix inspection;
-- installable wheel and source distribution on PyPI;
-- a conda-forge package maintained through the normal feedstock process.
+## Coordinate capability
+
+The detailed contract is [COORDINATES.md](COORDINATES.md). It includes:
+
+- signed and hemisphere-qualified decimal degrees;
+- DDM and DMS;
+- common ASCII and Unicode symbol variants;
+- unambiguous ISO 6709 forms;
+- NMEA latitude/longitude fields without a full sentence stack;
+- decimal-comma input when separators prove the meaning;
+- strings, numeric pairs, named mappings, and GeoJSON Points;
+- explicit `latlon`, `lonlat`, and evidence-only `auto` ordering;
+- canonical formatting and round trips; and
+- an inspection result explaining what was detected.
 
 ## Deliberate non-goals
 
-The following should not be added merely because they are nautical or geospatial:
+Do not add these merely because they are nautical or geospatial:
 
-- arbitrary coordinate reference system transformations;
-- chart display, route planning, bathymetry, AIS, autopilot, or collision-avoidance systems;
+- arbitrary CRS transformation;
+- chart display, route planning, bathymetry, AIS, autopilot, or collision avoidance;
 - live GPS/device connections;
-- complete NMEA sentence decoding and streaming;
-- magnetic declination calculation or bundled magnetic models;
-- tide, current, weather, ephemeris, or other time-varying data;
-- map tiles, hosted APIs, remote lookup services, or data downloads at runtime;
+- complete NMEA sentence decoding or streaming;
+- magnetic models, tides, currents, weather, or ephemerides;
+- map tiles, hosted APIs, or runtime downloads;
 - plotting, GUI, web-server, database, or dataframe frameworks;
-- encrypted proximity matching;
-- generic computational geometry unrelated to navigation fixes.
+- a plugin system or selectable geodesic backends;
+- a general units package; or
+- generic computational geometry unrelated to positions and fixes.
 
-Users needing CRS transformation should combine NautiPy with `pyproj`. Users needing broad geodesic variants may use GeographicLib, PyGeodesy, or nvector directly. NautiPy should interoperate with those tools rather than absorb their entire scope.
+Users needing broader GIS or CRS work should combine NautiPy with specialist packages rather than expanding NautiPy into their replacement.
 
-## Public API character
+## Success criteria
 
-The public API should be:
+NautiPy is succeeding when:
 
-- small enough to learn from the top-level package namespace;
-- type-annotated;
-- based on ordinary Python values and dataclasses;
-- explicit about units and coordinate order;
-- free of required global configuration;
-- deterministic and offline;
-- stable once version 1.0 is reached.
-
-Detailed parser and solver machinery should remain in submodules. Internal implementation classes are not automatically public API.
-
-## Compatibility policy
-
-The existing project is an early proof of concept. The modernization may change internals and correct numerical behavior. Preserve useful call patterns through compatibility wrappers where doing so does not compromise correctness.
-
-Before version 1.0:
-
-- breaking changes are allowed when documented in release notes;
-- deprecation warnings are preferred when a practical migration path exists;
-- incorrect or ambiguous behavior may be removed without reproducing it in the new core.
-
-At and after version 1.0:
-
-- follow semantic versioning;
-- keep documented APIs compatible across minor and patch releases;
-- reserve major releases for intentional breaking changes.
-
-## Success criteria for version 1.0
-
-Version 1.0 is ready when:
-
-- common coordinate inputs work without a format argument;
-- ambiguous inputs fail with actionable guidance;
-- parsing, formatting, and geodesic calculations have independent reference tests;
-- bearing, range, and mixed fixes return diagnostics and handle poor geometry explicitly;
-- the package has a coherent typed API and migration path from the historical API;
-- wheel and source distributions are reproducibly built and published through GitHub Actions;
-- the package is accepted into conda-forge or has an active staged-recipes submission; and
-- documentation contains copyable end-to-end examples for the four core workflows.
+- ordinary coordinate input works without users identifying its notation;
+- ambiguous input fails with a concrete resolution;
+- the core API is small enough to understand from examples;
+- a normal installation has no broad scientific or GIS dependency stack;
+- navigation results match independent WGS84 references;
+- built artifacts install and work outside the repository checkout;
+- releases are automated but intentional; and
+- new features make the main workflows simpler rather than merely increasing feature count.
