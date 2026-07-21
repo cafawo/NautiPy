@@ -1,291 +1,307 @@
 # NautiPy implementation roadmap
 
-This roadmap turns the product direction into an ordered coding plan. The sequence is deliberate: establish an installable and testable baseline, make coordinate input excellent, then build navigation and fix capabilities on that stable model.
+This roadmap builds the smallest useful package first, then adds capability without making the default installation heavy.
 
-Checkboxes describe repository state, not aspiration. Mark them complete only when their acceptance criteria pass on the default branch.
+Checkboxes describe repository state. Mark an item complete only when its acceptance criteria pass on the default branch.
 
-## Current state
+## Starting decision
 
-The repository is an early proof of concept:
+The existing repository is an experiment, not a supported package. The rewrite is clean-slate:
 
-- packaging uses a legacy `setup.py`;
-- implementation is concentrated in `nautipy/nautipy.py`;
-- public exports are not deliberately defined;
-- the dependency list includes the standard-library module `math`;
-- calculations mix spherical formulas and planar assumptions;
-- public validation uses assertions in places;
-- multilateration returns little diagnostic information;
-- the existing test contains an unconditional failure; and
-- there is no release automation.
+- remove the legacy packaging and implementation;
+- do not preserve experimental imports or behavior;
+- do not add compatibility wrappers or deprecation machinery;
+- begin the public package at version `0.1.0`; and
+- optimize for a small, clear API and a low dependency budget.
 
-Treat existing examples as useful product clues, not as a correctness specification.
+The old code may supply domain examples, but every numerical result must be independently verified before reuse.
 
-## Milestone 0 — Packaging and trustworthy baseline
+## Release shape
 
-**Goal:** create a conventional Python project that an agent can install, test, build, and change safely.
+### Version 0.1.0
 
-### Work
+A polished coordinate and WGS84 navigation package:
 
-- [ ] Add `pyproject.toml` using PEP 517/PEP 621 metadata and the standard setuptools backend.
-- [ ] Move implementation to a `src/nautipy/` layout, or document a compelling reason to retain the current layout.
-- [ ] Preserve the package import name `nautipy` and define intentional top-level exports.
-- [ ] Replace the invalid dependency metadata. Never list standard-library modules as dependencies.
-- [ ] Declare the supported Python range once in `pyproject.toml`; keep classifiers and CI aligned with it.
-- [ ] Add a `test` or `dev` extra containing only tools needed to test and build the package.
-- [ ] Replace the placeholder failing test with meaningful baseline tests for the historical public behavior that remains supported.
-- [ ] Add a build test that produces both an sdist and wheel.
-- [ ] Add an install smoke test that imports the built wheel in a clean environment.
+- coordinate detection, parsing, inspection, formatting, and conversion;
+- immutable `Position` values;
+- geodesic distance, bearings, destination, and interpolation;
+- lightweight GeoJSON and CLI support;
+- pip/PyPI release automation; and
+- conda-forge submission.
+
+### Later 0.x release
+
+An optional `fix` extra for bearing/range position estimation using scientific dependencies.
+
+This sequencing protects the main value and keeps `pip install nautipy` light.
+
+---
+
+## Milestone 0 — Clean package and decimal-degree vertical slice
+
+**Goal:** replace the experiment with a real installable package that already performs one useful task.
+
+### Remove
+
+- [ ] Delete legacy `setup.py` after `pyproject.toml` replaces it.
+- [ ] Delete the old `nautipy/nautipy.py` implementation and accidental package exports.
+- [ ] Delete placeholder and unconditional-failure tests.
+- [ ] Remove old README examples that imply unsupported behavior.
+
+Do not move these elements into a `legacy` module and do not wrap them.
+
+### Package foundation
+
+- [ ] Add PEP 517/PEP 621 metadata in `pyproject.toml` using setuptools.
+- [ ] Use a `src/nautipy/` layout.
+- [ ] Set the initial development version to `0.1.0`.
+- [ ] Declare a concrete supported Python range in `pyproject.toml` and align CI with it.
+- [ ] Keep runtime dependencies empty for this milestone.
+- [ ] Include the MIT license and project documentation in built distributions.
+- [ ] Add `CHANGELOG.md` with an `Unreleased` section.
+
+### Useful vertical slice
+
+- [ ] Add an immutable validated `Position(latitude, longitude)` dataclass.
+- [ ] Reject non-finite and out-of-range values with descriptive exceptions.
+- [ ] Add `parse_position` for decimal-degree strings and two-value Python sequences.
+- [ ] Support explicit `order="latlon"` and `order="lonlat"`.
+- [ ] Add evidence-only `order="auto"` for cases where range proves the order.
+- [ ] Raise `AmbiguousCoordinateError` when both orders remain valid.
+- [ ] Add canonical decimal-degree `format_position` output.
+- [ ] Define intentional top-level exports in `nautipy.__init__`.
+
+The first slice should not attempt DDM, DMS, ISO 6709, NMEA, geodesics, GeoJSON, or fixing.
+
+### Tests and CI
+
+- [ ] Use standard-library `unittest` for public behavior and errors.
+- [ ] Test legal extrema, NaN, infinity, malformed pairs, explicit order, and ambiguous auto order.
 - [ ] Add GitHub Actions CI for pull requests and default-branch pushes.
-- [ ] Keep the MIT license and include it in built distributions.
-- [ ] Establish a changelog with an `Unreleased` section.
-
-### Packaging decisions
-
-- Use `pyproject.toml` as the single source of package metadata and dependency declarations.
-- Use a plain version value in project metadata for the first modernization. Do not add dynamic version machinery unless it removes more complexity than it creates.
-- Do not require Poetry, uv, Conda, Make, pre-commit, or a particular shell. Contributors may use them, but standard `venv` plus `pip` must work.
-- Do not add a linter, formatter, type checker, or documentation generator merely to complete this milestone. A later pull request may add one when there is a concrete benefit and one canonical configuration.
-- Coordinate parsing must remain standard-library-only even if the complete package later depends on scientific libraries.
+- [ ] Test the oldest and newest stable Python versions declared by the package.
+- [ ] Build both wheel and sdist.
+- [ ] Install the built wheel in a clean environment and run an import plus parse/format smoke test.
 
 ### Acceptance criteria
 
-- `python -m pip install -e ".[test]"` succeeds in a fresh virtual environment.
-- The canonical test command exits successfully.
-- `python -m build` creates an sdist and wheel.
-- Installing the wheel into a fresh environment allows `import nautipy`.
-- CI runs the lower bound and newest stable Python covered by `requires-python`, plus cross-platform smoke coverage where practical.
-- No test is a placeholder and no public input validation relies on `assert`.
-- The README's current examples either work or are explicitly marked as legacy pending a later milestone.
+```bash
+python -m pip install -e .
+python -m unittest discover -s tests -v
+python -m build
+```
 
-## Milestone 1 — Coordinate intake and conversion
+All commands succeed in a fresh virtual environment after installing the non-runtime build tool required by the last command.
 
-**Goal:** make common coordinate input work without a format argument while refusing unsafe guesses.
+The built wheel:
 
-The observable specification is [docs/COORDINATES.md](docs/COORDINATES.md).
+- installs without pulling runtime dependencies;
+- imports outside the source checkout;
+- parses and formats a decimal-degree position; and
+- exposes no legacy aliases.
 
-### Work
+---
 
-- [ ] Add an immutable validated `Position` data model with decimal-degree latitude and longitude.
-- [ ] Implement a normalization/tokenization stage that preserves separator meaning.
-- [ ] Implement independent parsers for decimal degrees, DDM, DMS, ISO 6709, and NMEA coordinate fields.
-- [ ] Support structured pairs, named mappings, and GeoJSON Points.
-- [ ] Implement explicit `latlon`, `lonlat`, and evidence-only `auto` ordering.
-- [ ] Implement decimal-comma input where pair separators make it unambiguous.
-- [ ] Add a candidate-based detection pipeline.
-- [ ] Add `parse_coordinate`, `parse_position`, and an inspection API.
-- [ ] Add `format_coordinate`, `format_position`, and `convert_position`.
-- [ ] Add a coordinate-specific exception hierarchy with actionable messages.
-- [ ] Preserve source precision or estimated resolution in inspection metadata where practical.
-- [ ] Add examples to the README before calling the milestone complete.
+## Milestone 1 — Complete coordinate detection and conversion
 
-### Implementation guidance
+**Goal:** make coordinate intake the package's first standout feature.
 
-- Do not implement the parser as one giant regular expression.
-- Harmless normalization may be permissive; semantic validation must be strict.
-- Never infer coordinate order from a likely real-world location.
-- Never silently wrap out-of-range longitude input.
-- Ensure the coordinate module imports without NumPy, SciPy, or geodesic modules.
-- Canonicalize format names in metadata; accept documented aliases such as `dmm` for `ddm`.
+The observable behavior is defined in [docs/COORDINATES.md](docs/COORDINATES.md).
+
+### Parsing
+
+- [ ] Add a normalization/tokenization stage that preserves separator meaning.
+- [ ] Add decimal degrees with sign and hemisphere markers.
+- [ ] Add degrees and decimal minutes (`ddm`, with common `dmm` input alias).
+- [ ] Add degrees, minutes, and seconds.
+- [ ] Add unambiguous ISO 6709 forms.
+- [ ] Add NMEA latitude/longitude field pairs without full sentence decoding.
+- [ ] Add decimal-comma input where pair syntax makes it unambiguous.
+- [ ] Add named mappings and recognized GeoJSON Point objects.
+- [ ] Keep explicit `latlon`, `lonlat`, and evidence-only `auto` order.
+- [ ] Use a candidate parser; do not build one giant regular expression.
+
+### Inspection and formatting
+
+- [ ] Add `inspect_position` returning position, detected format, normalizations, warnings, and candidate information.
+- [ ] Add canonical DD, DDM, DMS, ISO 6709, and NMEA formatting.
+- [ ] Add `convert_position` as parse plus format.
+- [ ] Handle precision, carry, and negative zero correctly.
+- [ ] Add a small documented coordinate exception hierarchy.
+
+### Dependency rule
+
+Coordinate modules remain standard-library-only. Importing or using them must not load a geodesic or scientific dependency.
 
 ### Acceptance criteria
 
-- All reference inputs in `docs/COORDINATES.md` resolve to the same `Position` within their stated precision.
-- Auto-detection works for every supported input family without a format argument.
-- Ambiguous numeric order and decimal-comma cases raise `AmbiguousCoordinateError` with a concrete resolution.
-- Formatting never emits invalid 60-minute or 60-second components after rounding.
+- Every reference input in `docs/COORDINATES.md` resolves correctly without a format argument.
+- Material ambiguity raises an error showing how to resolve it.
 - Parse-format-parse round trips pass for every output format.
-- Boundary and malformed inputs are covered, including NaN, infinity, legal extrema, conflicting signs, and extra fields.
-- Typical parser use has no network, filesystem, NumPy, or SciPy dependency.
+- Boundary, malformed, conflicting-sign, extra-field, decimal-comma, and Unicode cases are tested.
+- The wheel remains pure Python and coordinate use has no runtime dependency.
 
-### Suggested release checkpoint
+---
 
-The first modern PyPI release can be made after Milestones 0 and 1 if the API is clearly marked pre-1.0. A reasonable next version from the historical `0.1` is `0.2.0`, but the release manager makes the final choice.
+## Milestone 2 — WGS84 navigation core
 
-## Milestone 2 — Position model and geodesic primitives
+**Goal:** make the normal NautiPy installation useful for navigation while adding only one focused dependency.
 
-**Goal:** replace ad hoc spherical calculations with a small, dependable WGS84 navigation API.
+### Dependency decision
 
-### Work
+- [ ] Evaluate the current maintained GeographicLib Python package against the required Python range.
+- [ ] Record the choice in the pull request.
+- [ ] Add one runtime dependency only after tests demonstrate its use for the public API.
+- [ ] Do not add pyproj, Shapely, NumPy, or SciPy to the normal installation.
 
-- [ ] Introduce a geodesic adapter backed by a mature ellipsoidal implementation such as GeographicLib.
-- [ ] Implement inverse calculation returning distance, initial bearing, and final bearing.
-- [ ] Implement destination calculation from position, true bearing, and distance.
-- [ ] Implement geodesic interpolation by fraction or distance.
-- [ ] Implement nearest-position lookup over ordinary iterables.
-- [ ] Normalize generated bearings to `[0, 360)` and document longitude behavior at the antimeridian.
-- [ ] Add explicit unit conversion helpers at API boundaries; store distances in metres internally.
-- [ ] Add compatibility wrappers for useful historical `haversine`, `bearing`, and `Pos.displace` calls.
-- [ ] Deprecate misleading legacy names or spherical behavior where needed.
+### Public API
 
-### Dependency policy
+- [ ] Add an inverse result model containing distance, initial bearing, and final bearing.
+- [ ] Add `distance(start, end)` returning metres.
+- [ ] Add `initial_bearing(start, end)` returning true degrees.
+- [ ] Add `destination(start, bearing, distance)`.
+- [ ] Add `interpolate(start, end, fraction=...)` or an equally small documented API.
+- [ ] Add nearest-position lookup over ordinary iterables if it remains simple and demonstrably useful.
+- [ ] Accept `Position` and documented position-like values through one shared coercion path.
 
-A mature pure-Python WGS84 dependency is preferred to maintaining another geodesic implementation. Add only the dependency used by the public implementation and record why it was selected. Do not depend on a broad GIS framework solely for direct/inverse geodesics.
+### Correctness
 
-### Acceptance criteria
-
-- Results match independent published or library reference cases within documented tolerances.
-- Tests cover ordinary routes, short distances, antimeridian crossing, high latitudes, and near-antipodal inputs.
-- Public defaults are WGS84 and true bearing.
-- A spherical approximation, if retained, is explicitly requested and named.
-- Coordinate-only imports remain lightweight.
-- Compatibility wrappers are tested and emit useful deprecation guidance where behavior changed.
-
-## Milestone 3 — Observation and fix engine
-
-**Goal:** deliver the package's second main differentiator: easy bearing, range, and mixed-observation fixes with diagnostics.
-
-### Public models
-
-- [ ] `BearingObservation`: known station, true bearing, optional standard uncertainty, optional identifier.
-- [ ] `RangeObservation`: known station, distance in metres, optional standard uncertainty, optional identifier.
-- [ ] `FixResult`: position, success state, residuals, objective/RMS information, iterations, warnings, and uncertainty information when valid.
-- [ ] Structured exceptions or result states for insufficient data, impossible geometry, ambiguity, and non-convergence.
-
-The final class names may change, but ordinary users must be able to construct observations without arrays or optimizer-specific concepts.
-
-### Exact and candidate geometry
-
-- [ ] Two-bearing intersection with explicit handling of parallel, nearly parallel, coincident, and backward-ray geometry.
-- [ ] Two-range circle intersection returning zero, one, or two candidates rather than choosing silently.
-- [ ] Candidate filtering and initial-guess generation for later least-squares solving.
-
-### Weighted solver
-
-- [ ] Bearing-only fixes with more observations than the mathematical minimum.
-- [ ] Range-only fixes with three or more observations.
-- [ ] Mixed bearing/range fixes.
-- [ ] Wrapped angular residuals for bearing observations.
-- [ ] Residual scaling from provided uncertainty.
-- [ ] A stable local coordinate representation for optimization; do not optimize raw latitude/longitude degrees without a documented numerical justification.
-- [ ] Bounds, convergence checks, and finite-result validation.
-- [ ] Multiple starting candidates where geometry can produce local alternatives.
-- [ ] Covariance or confidence ellipse when the local linearization is meaningful.
-- [ ] Geometry diagnostics for weak dilution, near-collinearity, parallel bearings, and unresolved competing solutions.
-
-### Dependency policy
-
-NumPy and SciPy are acceptable core dependencies when used for the weighted nonlinear solver and diagnostics. They must not be imported by coordinate-only modules. Do not expose SciPy result objects as the NautiPy API, and do not require optional optimization packages for the standard fix workflow.
+- [ ] Match independent WGS84 reference cases.
+- [ ] Cover short distances, antimeridian crossing, high latitudes, and near-antipodal inputs.
+- [ ] Normalize generated bearings to `[0, 360)`.
+- [ ] Keep distance metres and bearings true degrees internally.
+- [ ] Do not expose third-party result objects.
 
 ### Acceptance criteria
 
-- Exact synthetic cases recover their known positions within documented tolerance.
-- Noisy overdetermined cases improve or remain stable when valid observations are added.
-- Observation weighting changes the solution in the expected direction.
-- Bearing residuals behave correctly across the `0°/360°` boundary.
-- Degenerate and impossible geometry never returns an unexplained plausible-looking position.
-- Competing range or fix solutions are returned or reported explicitly.
-- `FixResult` remains serializable to ordinary Python/JSON-compatible data after converting `Position` values.
-- Historical `triangulate` and `multilaterate` calls have tested compatibility adapters or documented migrations.
+- Navigation results match documented references within justified tolerances.
+- Coordinate-only modules still import without loading the geodesic implementation.
+- The normal installation has at most one runtime dependency.
+- No spherical approximation is presented as the WGS84 default.
 
-## Milestone 4 — Interchange, CLI, and migration experience
+---
 
-**Goal:** make the core workflows practical without turning NautiPy into an application framework.
+## Milestone 3 — Interchange, CLI, and first public release
 
-### Work
+**Goal:** finish the practical 0.1.0 experience and publish it reproducibly.
 
-- [ ] Replace ad hoc GeoJSON handling with validated Point and FeatureCollection import/export.
-- [ ] Preserve descriptions and identifiers when round-tripping positions.
-- [ ] Reject unsupported geometry types with clear messages.
-- [ ] Add a small standard-library CLI if it reduces friction for coordinate conversion or fix inspection.
-- [ ] Add copyable end-to-end examples for parsing, conversion, geodesics, and fixes.
-- [ ] Add a migration guide from the historical API.
-- [ ] Remove obsolete compatibility code only after its documented deprecation period.
+### GeoJSON
 
-### CLI boundaries
+- [ ] Add standard-library GeoJSON Point and FeatureCollection import/export.
+- [ ] Preserve supported identifiers and descriptions.
+- [ ] Follow GeoJSON longitude/latitude order explicitly.
+- [ ] Reject unsupported geometry instead of ignoring it.
 
-A CLI may provide commands such as:
+### CLI
+
+- [ ] Add a small `argparse` CLI only for shipped library workflows.
+- [ ] Provide `nautipy convert` and `nautipy inspect`.
+- [ ] Reuse public parsing and formatting functions; do not duplicate logic.
+- [ ] Keep the CLI deterministic and offline.
+
+Example target:
 
 ```text
 nautipy convert "50° 7.3542' N; 8° 39.942' E" --to dd
 nautipy inspect "+50.12257+008.66570/"
 ```
 
-Do not add an interactive UI, network service, map renderer, or configuration framework.
+### Documentation
 
-### Acceptance criteria
+- [ ] Replace planned examples with examples verified against the installed wheel.
+- [ ] Add concise API examples for parsing, conversion, navigation, GeoJSON, and CLI use.
+- [ ] State that NautiPy is not certified navigation equipment.
 
-- GeoJSON round trips preserve position and supported metadata.
-- The CLI, if shipped, uses the same public parser/formatter functions as Python callers.
-- Examples execute in CI or are covered by equivalent tests.
-- Migration guidance names replacements and unit differences explicitly.
-
-## Milestone 5 — Release automation and distribution
-
-**Goal:** publish tested artifacts with minimal manual credential handling and make NautiPy available to pip and conda-forge users.
-
-The complete process is defined in [docs/RELEASING.md](docs/RELEASING.md).
-
-### Work
+### Release automation
 
 - [ ] Add a tag-triggered GitHub Actions release workflow.
-- [ ] Validate that the tag, package metadata version, and changelog agree.
-- [ ] Build the sdist and wheel once, test those exact artifacts, and pass them to the publish job.
-- [ ] Publish to PyPI through Trusted Publishing/OIDC with a protected GitHub environment.
-- [ ] Create a GitHub Release from the same tag and artifacts.
-- [ ] Pin third-party actions immutably and configure automated update PRs for those pins.
-- [ ] Document one-time PyPI project and trusted-publisher setup.
-- [ ] After a stable PyPI release, submit a conda-forge staged-recipes recipe.
-- [ ] Maintain subsequent conda releases through the generated feedstock and conda-forge bot PRs.
+- [ ] Validate that tag, project version, and changelog agree.
+- [ ] Build the wheel and sdist once.
+- [ ] Test those exact artifacts before publication.
+- [ ] Publish to PyPI through Trusted Publishing/OIDC.
+- [ ] Create a GitHub Release from the same artifacts.
+- [ ] Keep pull-request workflows unable to publish.
+
+### Distribution
+
+- [ ] Release `0.1.0` on PyPI after name ownership and trusted-publisher setup are confirmed.
+- [ ] Verify `pip install nautipy` in a clean environment.
+- [ ] Submit a conda-forge staged-recipes recipe built from the PyPI sdist.
+- [ ] After acceptance, maintain conda releases through the generated feedstock and bot PRs.
 
 ### Acceptance criteria
 
-- Pull requests cannot publish packages.
-- A release requires an intentional semantic-version tag.
-- The publish job has only the permissions it needs and uses no long-lived PyPI token.
-- The artifact published to PyPI is byte-for-byte the artifact tested by the release workflow.
-- Duplicate or mismatched versions fail loudly.
-- `pip install nautipy` works from PyPI for every supported Python version with available dependencies.
-- `conda install -c conda-forge nautipy` works once the feedstock is accepted.
+- A tagged release publishes only artifacts already tested by CI.
+- `pip install nautipy` provides the complete coordinate and navigation API.
+- `conda install -c conda-forge nautipy` works after feedstock acceptance.
+- The default installation contains no scientific or GIS framework stack.
 
-## Milestone 6 — Version 1.0 stabilization
+---
 
-**Goal:** declare a small stable API after real use, not merely after feature completion.
+## Milestone 4 — Optional bearing/range fix engine
 
-### Work
+**Goal:** add the advanced differentiator without changing the lightweight normal installation.
 
-- [ ] Review top-level exports and remove accidental public internals.
-- [ ] Resolve all known input ambiguities with documented behavior.
-- [ ] Review numerical tolerances and warning thresholds using a reference-case corpus.
-- [ ] Complete compatibility deprecations planned for 1.0.
-- [ ] Freeze the documented coordinate, geodesic, observation, and result APIs.
-- [ ] Publish API stability and support policies.
-- [ ] Ensure conda-forge metadata matches PyPI runtime requirements.
+### Packaging
+
+- [ ] Add a `fix` optional extra containing only the required scientific dependencies.
+- [ ] Ensure `pip install nautipy` remains usable without NumPy or SciPy.
+- [ ] Provide one clear missing-extra error containing `pip install "nautipy[fix]"`.
+- [ ] Keep optional imports out of coordinate and geodesic module import paths.
+
+### Models
+
+- [ ] Add simple bearing and range observation dataclasses.
+- [ ] Add a NautiPy-owned `FixResult` with position, success, residuals, objective/RMS values, iterations, warnings, and uncertainty information when valid.
+- [ ] Do not expose arrays or optimizer result objects in the ordinary API.
+
+### Geometry and solver
+
+- [ ] Add two-bearing and two-range candidate geometry with explicit ambiguous/degenerate outcomes.
+- [ ] Add overdetermined bearing-only fixes.
+- [ ] Add range-only fixes.
+- [ ] Add mixed bearing/range fixes.
+- [ ] Wrap angular residuals across `0°/360°`.
+- [ ] Scale residuals using observation uncertainty.
+- [ ] Optimize in a stable local coordinate representation, not raw latitude/longitude degrees without justification.
+- [ ] Report non-convergence, weak geometry, and competing solutions explicitly.
+- [ ] Add covariance or confidence information only where mathematically meaningful.
 
 ### Acceptance criteria
 
-- The four core workflows in `docs/PRODUCT.md` are stable, tested, and documented.
-- No known case returns a plausible-looking fix after solver failure or ambiguous geometry.
-- Public exceptions and result fields are documented.
-- The release process has successfully published at least one pre-1.0 release.
-- Backwards compatibility follows semantic versioning from this point onward.
+- Exact synthetic cases recover their known positions.
+- Independent reference cases match within documented tolerances.
+- Weighting affects solutions in the expected direction.
+- Degenerate geometry never returns an unexplained plausible-looking fix.
+- Normal coordinate/navigation installations and tests pass without the optional dependencies installed.
 
-## Recommended pull-request sequence for an agent
+---
 
-Keep early changes reviewable. A practical sequence is:
+## Milestone 5 — Version 1.0 stabilization
 
-1. **Packaging baseline:** `pyproject.toml`, package layout, exports, real tests, build smoke test.
-2. **CI baseline:** pull-request tests and artifact build, without publishing.
-3. **Coordinate core:** `Position`, exceptions, normalization, decimal degrees, explicit order.
-4. **Coordinate formats:** DDM, DMS, ISO 6709, NMEA fields, decimal comma.
-5. **Formatting and diagnostics:** conversion, inspection results, round-trip and ambiguity tests.
-6. **Geodesics:** WGS84 adapter and public direct/inverse functions.
-7. **Fix models and exact intersections.**
-8. **Weighted mixed solver and diagnostics.**
-9. **GeoJSON, migration guide, and optional CLI.**
-10. **Release workflow and first PyPI release.**
-11. **conda-forge staged-recipes submission.**
+**Goal:** stabilize a deliberately small API after real pre-1.0 use.
 
-Do not combine the packaging rewrite, parser, solver, and release workflow into one pull request.
+- [ ] Review and freeze top-level exports.
+- [ ] Remove accidental public internals.
+- [ ] Resolve known parser ambiguities with documented behavior.
+- [ ] Review numerical tolerances against the reference corpus.
+- [ ] Decide whether the optional fix API is mature enough for the 1.0 contract.
+- [ ] Publish API stability and supported-Python policies.
+- [ ] Confirm PyPI and conda-forge metadata agree.
 
-## Feature admission test
+Version 1.0 is ready when the documented API is coherent, tested from built artifacts, used in real examples, and small enough to maintain.
 
-Before adding a new feature, answer all of the following:
+---
 
-1. Does it directly improve coordinate-to-position or observation-to-fix work?
-2. Can it be implemented against a stable public specification or mature dependency?
-3. Can ambiguity and failure be represented honestly?
-4. Can it remain deterministic and offline?
-5. Does its user value exceed its API and maintenance cost?
-6. Can it be tested without fragile external services or time-varying datasets?
+## Recommended coding-agent pull-request sequence
 
-A "no" does not permanently reject a feature, but it means the product documents must be changed deliberately before implementation.
+1. **Clean vertical slice:** replace the experiment with packaging, `Position`, decimal parsing/formatting, tests, and CI.
+2. **Coordinate syntax:** normalization, DD/DDM/DMS, signs, hemispheres, and ambiguity.
+3. **Machine formats:** ISO 6709, NMEA fields, structured values, and GeoJSON Point parsing.
+4. **Formatting and inspection:** all output formats, precision behavior, and diagnostics.
+5. **Geodesic dependency and API:** WGS84 inverse/direct calculations and references.
+6. **Interchange and CLI:** GeoJSON collections plus `convert` and `inspect` commands.
+7. **Release automation:** artifact testing, PyPI Trusted Publishing, and GitHub Release.
+8. **Conda-forge submission:** staged-recipes after the stable PyPI release.
+9. **Optional fix extra:** observation models, candidate geometry, solver, and diagnostics.
+
+Each pull request should leave the package installable and demonstrably more useful. None should add historical compatibility code.
