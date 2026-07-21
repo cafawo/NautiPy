@@ -1,102 +1,134 @@
-![nauitpy](https://github.com/cafawo/NautiPy/assets/21214530/f051963d-2adf-49f3-99c8-737c1e877818)
-
-
-
 # NautiPy
-NautiPy is an open-source Python library for nautical navigation applications.
 
+**A small Python package for effortless coordinate handling and trustworthy WGS84 navigation calculations.**
 
-## ISO 6709 Coordinates
-The library uses a float representation of GPS coordinates, based on the ISO 6709 standard (without left padding zeros), i.e.
-* Latitude: ±DD.D  (e.g. +50.12257)
-* Longitude: ±DDD.D (e.g. +8.66370)
+> **Status:** clean pre-release rewrite. The experimental code previously in this repository is being replaced and is not a supported API. The first public package will start at version `0.1.0`.
 
-### Coordinate Conversion
+## What NautiPy is for
 
-The `convert_coordinates` function allows for conversion between various GPS input formats to ISO 6709 decimal degrees. Supported input formats include:
-- **Degrees, Minutes, Seconds (DMS):** e.g. `"N 50° 7' 20.9122"`, `"W 8° 39' 56.52"`
-- **Degrees and Decimal Minutes (DMM):** e.g. `"50° 7.34854N"`, `"8° 39.942W"`
-- **Decimal Degrees (DD):** e.g. `"+50.12257"`, `"-8.66570"`
+NautiPy focuses on the path from messy coordinate input to a validated, useful position:
 
-Example usage:
-```Python
-# Convert different formats to ISO 6709 (decimal degrees)
-print(convert_coordinates("+50.12257", "-8.66570", "DD"))
-print(convert_coordinates("N 50° 7' 20.9122", "W 8° 39' 56.52", "DMS"))
-print(convert_coordinates("50° 7.34854N", "8° 39.942W", "DMM"))
+```text
+paste or receive coordinates
+          ↓
+automatically detect and validate them
+          ↓
+convert, inspect, exchange, or calculate navigation values
 ```
 
+The main value is:
 
-## Functionalities
+- automatic detection of common coordinate formats;
+- clear errors when latitude/longitude order or syntax is genuinely ambiguous;
+- conversion among decimal degrees, DDM, DMS, ISO 6709, and NMEA fields;
+- a small immutable `Position` model;
+- WGS84 distance, bearing, destination, and interpolation; and
+- a lightweight installation without a general GIS or scientific stack.
 
-### Basics
-```Python
-# Store and descibe your position
-work = Pos(50.127198, 8.665562, desc='Campus building')
-print(f'Work is here: {work.coordinates()}')
+A bearing/range position-fix engine is planned later as an optional extra so ordinary users do not install NumPy and SciPy unnecessarily.
 
-# Get relative position, e.g. heading 90 degrees 12 kilometers away
-work_displaced = work.displace(90, 12)
+## Target 0.1 API
 
-# Get bearing to or from position
-bearing(work, work_displaced)
+The examples below describe the intended first public release and will be converted into tested examples as milestones land.
 
-# Get distance to position
-haversine(work, work_displaced)
-
-# Consider the following known stations
-stations = [Pos(50.116135, 8.670277, 'Opernturm'),
-            Pos(50.112836, 8.666753, 'Deka tower'),
-            Pos(50.110347, 8.659873, 'Volksbank tower')
-            ]
-
-# Get the nearest stations within a radius around your position
-nearest = nearest_stations(work, stations, radius=1.7)
-print(f'{[(p.desc, d) for p, d in nearest]}')
-```
-
-### Triangulation and Multilateration
-To fix a position both methods rely on knowledge about the position and bearing to 2 (triangulation) or position and distance to 3 (multilateration) stations.
-
-In trigonometry and geometry, triangulation is the process of determining the location of a point by forming triangles to it from known points. ([Wikipedia](https://en.wikipedia.org/wiki/Triangulation))
-```Python
-# Get your position from bearings to two stations
-triangulate(stations[0], 164.71, stations[2], 192.22).coordinates()
-```
-True range multilateration is a method to determine the location of a movable vehicle or stationary point in space using multiple ranges (stations) between the vehicle/point and multiple spatially-separated known locations. ([Wikipedia](https://en.wikipedia.org/wiki/Multilateration))
-```Python
-# Get your position from distances to at least 3 stations (you can use more)
-#               position,      distance
-multilaterate([(stations[0],  1.275251),  
-               (stations[1],  1.599237),  
-               (stations[2],  1.917145)]).coordinates()
-```
-Compare both positions to work, i.e. (50.127198, 8.665562).
-
-
-### Importing and exporting
-
-NautiPy includes `export_positions` and `import_positions` functions to convert position data into GeoJSON format for easy use in GIS software and mapping services. It can save the output to a file or return the GeoJSON string.
-
-Example Usage
+### Parse whatever notation you have
 
 ```python
-# Export and save to a file
-export_positions(stations, save_as="positions.geojson")
+from nautipy import parse_position
 
-# Load positions from a GeoJSON file
-stations_reloaded = import_positions('positions.geojson')
+p1 = parse_position("50.12257, 8.66570")
+p2 = parse_position("50° 7.3542' N; 8° 39.942' E")
+p3 = parse_position("+50.12257+008.66570/")
+
+assert p1 == p2 == p3
 ```
 
-## Modernization and development plan
+### Inspect what was detected
 
-The next development phase focuses NautiPy on two areas of added value: effortless, safe coordinate detection/conversion and trustworthy position fixes from bearing and range observations. The examples above describe the historical proof-of-concept API until the relevant roadmap milestones land.
+```python
+from nautipy import inspect_position
 
-Start here:
+result = inspect_position("5007.3542,N,00839.9420,E")
+print(result.position)
+print(result.format)
+print(result.normalizations)
+```
+
+### Convert formats
+
+```python
+from nautipy import convert_position
+
+text = convert_position(
+    "50.12257, 8.66570",
+    to="dms",
+    precision=2,
+)
+```
+
+### Calculate navigation values
+
+```python
+from nautipy import destination, distance, initial_bearing
+
+start = "50.12257, 8.66570"
+end = destination(start, bearing=90, distance=12_000)
+
+print(distance(start, end))
+print(initial_bearing(start, end))
+```
+
+Distances use metres and bearings use true degrees by default.
+
+## Input philosophy
+
+NautiPy is permissive about presentation and strict about meaning.
+
+It should handle harmless variation in whitespace, Unicode symbols, decimal separators, and hemisphere placement. It must not silently choose between two valid locations.
+
+```python
+parse_position("120, 50", order="auto")  # longitude/latitude is provable
+parse_position("8, 50", order="auto")    # raises AmbiguousCoordinateError
+```
+
+## Lightweight architecture
+
+The package is deliberately layered:
+
+- **coordinates:** Python standard library only;
+- **normal navigation:** at most one focused pure-Python WGS84 dependency;
+- **advanced fixes:** optional `nautipy[fix]` extra in a later release.
+
+NautiPy will not require pyproj, Shapely, pandas, NumPy, or SciPy for ordinary coordinate and navigation use.
+
+## Scope boundaries
+
+NautiPy is not intended to provide general CRS transformation, chart display, route planning, AIS, live GPS connections, magnetic models, tides, weather, plotting, a GUI, or a web service.
+
+It is a calculation library, not certified navigation equipment.
+
+## Development
+
+The repository-local plan is designed for both human contributors and coding agents:
 
 - [Coding-agent guide](AGENTS.md)
 - [Product direction](docs/PRODUCT.md)
+- [Architecture and dependency policy](docs/ARCHITECTURE.md)
 - [Coordinate detection and conversion specification](docs/COORDINATES.md)
 - [Implementation roadmap](ROADMAP.md)
 - [Release and distribution plan](docs/RELEASING.md)
 - [Contribution guide](CONTRIBUTING.md)
+
+The first implementation milestone replaces the experimental project with a clean `src/` package, immutable `Position`, decimal-degree parsing and formatting, standard-library tests, package builds, and CI. It intentionally provides no compatibility layer for the old code.
+
+## Distribution plan
+
+After the 0.1 feature set passes artifact tests:
+
+1. an intentional semantic-version tag triggers GitHub Actions;
+2. the workflow validates, builds, and tests the exact wheel and sdist;
+3. those artifacts are published to PyPI through Trusted Publishing;
+4. the same artifacts are attached to a GitHub Release; and
+5. the stable PyPI sdist is submitted to conda-forge through staged-recipes.
+
+Merging a pull request never publishes a package.
