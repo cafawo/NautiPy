@@ -1,0 +1,2 @@
+include AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md ROADMAP.md
+recursive-include docs *.md

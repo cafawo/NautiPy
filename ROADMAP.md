@@ -66,8 +66,8 @@ Do not move these elements into a `legacy` module and do not wrap them.
 - [ ] Reject non-finite and out-of-range values with descriptive exceptions.
 - [ ] Add `parse_position` for decimal-degree strings and two-value Python sequences.
 - [ ] Support explicit `order="latlon"` and `order="lonlat"`.
-- [ ] Add evidence-only `order="auto"` for cases where range proves the order.
-- [ ] Raise `AmbiguousCoordinateError` when both orders remain valid.
+- [ ] Add evidence-only `order="auto"` for range-proven or equivalent orders.
+- [ ] Raise `AmbiguousCoordinateError` when valid orders produce different positions.
 - [ ] Add canonical decimal-degree `format_position` output.
 - [ ] Define intentional top-level exports in `nautipy.__init__`.
 

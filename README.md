@@ -4,6 +4,24 @@
 
 > **Status:** clean pre-release rewrite. The experimental code previously in this repository is being replaced and is not a supported API. The first public package will start at version `0.1.0`.
 
+## Current development slice
+
+The installable development package currently provides validated decimal-degree
+positions, explicit latitude/longitude ordering, and canonical decimal output:
+
+```python
+from nautipy import format_position, parse_position
+
+position = parse_position("50.12257, 8.66570")
+print(format_position(position))  # 50.12257, 8.6657
+```
+
+Use `order="lonlat"` for longitude-first input. `order="auto"` accepts cases
+where numeric range proves the order or both orders produce the same position;
+materially different candidates raise an actionable
+`AmbiguousCoordinateError`. The additional formats and navigation functions
+below are the planned `0.1.0` surface and land in later milestones.
+
 ## What NautiPy is for
 
 NautiPy focuses on the path from messy coordinate input to a validated, useful position:
