@@ -16,7 +16,8 @@ Python already has strong geodesic, projection, and GIS libraries. NautiPy shoul
 4. calculate the navigation quantities users commonly need; and
 5. optionally estimate a position from bearings and ranges with diagnostics.
 
-Coordinate usability is the first differentiator. Position fixing is the later advanced differentiator. General GIS is not the goal.
+Coordinate usability is the first differentiator. Diagnosed position fixing is
+the optional advanced differentiator. General GIS is not the goal.
 
 ## Clean start
 
@@ -58,7 +59,9 @@ Errors should name the ambiguity and show the argument or syntax that resolves i
 
 ### Lightweight by default
 
-The coordinate layer uses only the Python standard library. The normal navigation package may use one focused pure-Python dependency for correct WGS84 geodesics. Scientific packages belong only in an optional future `fix` extra.
+The coordinate layer uses only the Python standard library. The normal
+navigation package uses one focused pure-Python dependency for correct WGS84
+geodesics. Scientific packages belong only in the optional `fix` extra.
 
 ### Small public surface
 
@@ -66,7 +69,9 @@ A user should be able to learn the main package from the top-level namespace. In
 
 ### Trustworthy results
 
-Navigation defaults to WGS84 and true bearings. A future position-fix result must include residuals and geometry/convergence information rather than returning only plausible-looking coordinates.
+Navigation defaults to WGS84 and true bearings. A position-fix result includes
+residuals and geometry/convergence information rather than returning only
+plausible-looking coordinates.
 
 ## Target workflows
 
@@ -121,20 +126,31 @@ degrees_true = initial_bearing(start, end)
 
 Distances are metres and bearings are true degrees by default. Display units are converted at the API boundary.
 
-### Solve a position fix later
+### Solve an optional position fix
 
-The advanced solver is a later optional capability:
+The advanced solver is an optional capability:
 
 ```bash
 python -m pip install "nautipy[fix]"
 ```
 
 ```python
+from nautipy import Position
 from nautipy.fix import BearingObservation, RangeObservation, solve_fix
 
+references = (
+    Position(50.116135, 8.670277),
+    Position(50.112836, 8.666753),
+    Position(50.110347, 8.659873),
+)
 result = solve_fix(
-    bearings=[...],
-    ranges=[...],
+    bearings=[
+        BearingObservation(references[0], 164.71, uncertainty=0.05),
+        BearingObservation(references[2], 192.22, uncertainty=0.05),
+    ],
+    ranges=[
+        RangeObservation(references[1], 1_599.237, uncertainty=2.0),
+    ],
 )
 
 print(result.position)
@@ -142,7 +158,10 @@ print(result.residuals)
 print(result.warnings)
 ```
 
-The exact solver API is not frozen until its milestone is implemented and tested.
+Bearings are true initial bearings measured at the unknown position toward a
+known reference. Uncertainties are required one-standard-deviation values in
+degrees or metres. Ambiguous and degenerate cases do not carry a selected
+position.
 
 ## First public release: 0.1.0
 
@@ -156,15 +175,19 @@ The initial useful release should ship:
 - WGS84 distance, initial/final bearing, destination, and interpolation;
 - lightweight GeoJSON Point/FeatureCollection interchange;
 - a small `argparse` CLI for conversion and inspection;
+- an isolated optional bearing/range fix extra when its numerical acceptance
+  criteria pass;
 - wheel and source distributions on PyPI;
 - automated tested releases from semantic-version tags; and
 - a conda-forge staged-recipes submission after the PyPI release.
 
-The 0.1.0 release does not need the nonlinear fix solver. A focused, polished coordinate-and-navigation package is more useful than a broad unfinished package.
+The normal 0.1.0 installation remains the focused coordinate-and-navigation
+package. The nonlinear fix solver is isolated behind an optional extra and
+must not make the default installation heavier.
 
-## Later optional fix capability
+## Optional fix capability
 
-A later release may add:
+The optional module provides:
 
 - two-bearing and two-range candidate geometry;
 - overdetermined bearing-only fixes;
@@ -176,6 +199,10 @@ A later release may add:
 - covariance or confidence information where valid.
 
 NumPy and SciPy are acceptable only inside this optional capability. They are not dependencies of coordinate parsing or ordinary navigation.
+
+The detailed contract is [FIXES.md](FIXES.md). It fixes bearing direction,
+units, regional search bounds, result status, residual signs, ambiguity, and
+the conditions under which local covariance is meaningful.
 
 ## Coordinate capability
 

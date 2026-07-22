@@ -14,7 +14,12 @@ The parser must be forgiving about presentation and strict about meaning:
 
 This document defines observable behavior. Internal parser structure may change as long as these guarantees remain true.
 
-## Proposed public API
+Implementation status: the current development slice covers the full
+Milestone 1 coordinate workflow: DD, DDM, DMS, two-dimensional ISO 6709 and
+NMEA position pairs, structured inputs, inspection metadata, canonical output,
+and resolution-aware conversion.
+
+## Public API
 
 The common path returns an ordinary validated `Position`:
 
@@ -24,23 +29,38 @@ from nautipy import parse_position
 position = parse_position("50° 7.3542' N; 8° 39.942' E")
 ```
 
-The intended public surface is:
+The public surface is:
 
 ```python
-parse_coordinate(value, *, axis=None, format=None) -> float
 parse_position(value, *, order="latlon", format=None) -> Position
 inspect_position(value, *, order="latlon", format=None) -> ParseResult
-format_coordinate(value, *, axis, to="dd", precision=None, **options) -> str
 format_position(position, *, to="dd", order="latlon", precision=None, **options) -> str
-convert_position(value, *, to="dd", order="latlon", precision=None, **options) -> str
+convert_position(
+    value,
+    *,
+    to="dd",
+    order="latlon",
+    output_order="latlon",
+    format=None,
+    precision=None,
+    **options,
+) -> str
 ```
 
-Names may be refined during implementation, but the package must retain both:
+The package retains both:
 
 1. a low-friction function returning `Position`; and
 2. an inspection path returning detection metadata, normalized tokens, warnings, and rejected alternatives.
 
 Passing `format=` means "interpret this input as this format" and bypasses automatic format selection after common normalization. It must still validate the data.
+
+`ParseResult` contains the normalized `position`, canonical detected `format`,
+axis-aligned `component_formats`, source-order evidence, the original text and
+normalized tokens for textual input, normalization labels, warnings, angular
+resolution per axis where it can be inferred, and selected, equivalent, or
+rejected candidate diagnostics. `source_order` is `None` when equal values make
+both source orders equivalent. Structured numeric input has no lexical tokens
+or inferred source resolution.
 
 ## Canonical internal representation
 
@@ -51,7 +71,10 @@ A parsed position is represented as:
 - WGS84 geographic coordinates;
 - no display formatting or unit suffix stored in the value itself.
 
-The `Position` model may store user metadata such as a description or identifier, but formatting and parser diagnostics do not participate in position equality.
+The `Position` model stores optional keyword-only `identifier` and
+`description` metadata. Identifiers are strings or finite JSON-style numbers;
+descriptions are strings. Metadata, formatting, and parser diagnostics do not
+participate in position equality or hashing.
 
 Do not silently wrap out-of-range user input. `181° E` is an error, not `179° W`. Geodesic calculations may normalize generated destinations separately.
 
@@ -70,11 +93,14 @@ N 50.12257
 8.66570° E
 ```
 
-A hemisphere may appear before or after the number. A sign and hemisphere may coexist only when they agree. `-50 S` is positive latitude only if the API explicitly documents double-negation; the preferred and safer behavior is to reject mixed sign-plus-hemisphere input unless the sign is non-negative. `-50 N` and `+50 S` are always contradictory.
+A hemisphere may appear before or after the number. A negative sign combined
+with any hemisphere is rejected rather than interpreted as double negation. An
+explicit `+` may accompany `N` or `E`, but contradicts `S` or `W`; use an
+unsigned magnitude with `S` or `W`.
 
 ### Degrees and decimal minutes (`ddm`)
 
-Use `ddm` as the canonical name. Accept `dmm` as a compatibility alias.
+Use `ddm` as the canonical name. Accept `dmm` as a common input alias.
 
 ```text
 50° 7.3542' N
@@ -108,6 +134,12 @@ Support separated and compact forms that can be interpreted without guessing, in
 
 Compact ISO 6709 parsing must determine component boundaries from valid latitude/longitude widths and syntax. Do not use loose splitting that can reinterpret malformed data.
 
+NautiPy's supported two-dimensional subset requires signs and zero-padded
+latitude/longitude fields. It accepts decimal-degree widths (`DD`/`DDD`), DDM
+widths (`DDMM`/`DDDMM`), and DMS widths (`DDMMSS`/`DDDMMSS`), with a fraction
+on the least-significant unit. Both components must use the same form. A space
+or comma may separate them; compact input needs no separator.
+
 Altitude or CRS suffixes are outside the first implementation unless they can be safely ignored with an explicit warning. Never treat altitude as longitude.
 
 ### NMEA coordinate fields
@@ -120,6 +152,12 @@ Support latitude/longitude coordinate fields and direction fields without attemp
 ```
 
 NMEA latitude uses `ddmm.mmmm`; longitude uses `dddmm.mmmm`. Direction fields are required for automatic NMEA detection. Full `$GPGGA`, `$GPRMC`, or other sentence parsing remains out of scope for the core coordinate parser.
+
+Fields require a decimal point and at least one fractional-minute digit. The
+four- and five-digit widths before that point are exact. NautiPy accepts the
+documented four-field comma form and two-component semicolon form only. As with
+other axis-marked input, directions may prove the axes when source order is
+reversed.
 
 ### Structured Python values
 
@@ -142,6 +180,11 @@ parse_position({
 ```
 
 Do not apply the GeoJSON order to an ordinary two-element list unless `order="lonlat"` is provided.
+
+Named mappings require exactly one latitude key (`lat` or `latitude`) and one
+longitude key (`lon` or `longitude`); extra fields are rejected. GeoJSON Point
+coordinates must contain exactly two numeric values. Three-dimensional
+positions are rejected while altitude support remains out of scope.
 
 ## Text normalization
 
@@ -176,7 +219,8 @@ The following is ambiguous and must fail with guidance:
 50,12257, 8,66570
 ```
 
-The error should suggest `50,12257; 8,66570`, explicit `order=`, or dot decimals.
+The error should suggest `50,12257; 8,66570` or dot decimals. Coordinate order
+cannot resolve punctuation ambiguity.
 
 ## Axis and coordinate-order rules
 
@@ -274,7 +318,7 @@ Canonical output names:
 
 Accept `dmm` as an alias for `ddm`, but emit canonical names in metadata and documentation.
 
-Formatting options should cover:
+Formatting options cover:
 
 - signed versus hemisphere notation where applicable;
 - latitude/longitude output order;
@@ -285,6 +329,39 @@ Formatting options should cover:
 
 Defaults should be readable and round-trip safely. Do not emit negative zero. Carry rounding into minutes/degrees correctly: `59.999...` seconds must not become an invalid `60.000` output.
 
+The canonical defaults for `Position(50.12257, 8.66570)` are:
+
+| Format | Precision | Output |
+| --- | ---: | --- |
+| DD | 6 degree decimals | `50.122570, 8.665700` |
+| DDM | 4 minute decimals | `50° 7.3542′ N; 8° 39.9420′ E` |
+| DMS | 2 second decimals | `50° 7′ 21.25″ N; 8° 39′ 56.52″ E` |
+| ISO 6709 | 6 degree decimals | `+50.122570+008.665700/` |
+| NMEA | 4 minute decimals | `5007.3542,N,00839.9420,E` |
+
+Explicit precision is limited to 0 through 15 decimal places in the
+least-significant displayed unit. NMEA requires at least one fractional-minute
+digit, so its minimum is 1. Formatting uses round-half-even, performs carry
+before rendering, and retains trailing zeros. Values that round to zero use
+unsigned zero, `N`/`E`, or an ISO `+` sign.
+
+Precision is a display choice, not extra storage precision. At deliberately
+over-fine settings near binary64 spacing, parsing can select an adjacent
+representable float and a later formatting pass can change the final digit.
+The documented defaults avoid that regime and round-trip canonically.
+
+DD defaults to signed notation. DDM and DMS default to hemispheres and Unicode
+symbols. `notation="signed"` or `"hemisphere"` and `symbols="unicode"` or
+`"ascii"` apply to those human-readable formats. Human separators are limited
+to `", "`, `"; "`, and `" / "`, so every emitted form remains parseable.
+
+ISO output is the signed, zero-padded decimal-degree form with a terminal
+slash. It is necessarily latitude/longitude; requesting longitude/latitude is
+an error. `compact=False` separates fields with a space by default, and a comma
+separator is also available. NMEA supports its four-field comma form and the
+two-component `"; "` form. Human and NMEA output support either coordinate
+order.
+
 ### Precision policy
 
 Do not imply more source accuracy than is known.
@@ -293,6 +370,19 @@ Do not imply more source accuracy than is known.
 - `convert_position` should preserve at least the source resolution by default where practical.
 - `format_position(Position(...))`, where source precision is unavailable, should use a documented sensible default and accept explicit `precision=`.
 - Internal calculations remain full precision; display rounding happens only during formatting.
+
+Inspection reports resolution as a positive, exact standard-library
+`Decimal` or `Fraction` angular quantum in decimal degrees, not as measurement
+accuracy or uncertainty. DD resolution is
+exponent-aware; DDM and NMEA resolution is the fractional-minute quantum
+divided by 60, and DMS resolution is the fractional-second quantum divided by
+3600. `convert_position(..., precision=None)` chooses the smallest target
+precision no coarser than the finest known axis resolution. It uses the table
+above when the source has no lexical resolution. If preserving the source
+would require more than the supported 15 display places, conversion raises
+unless the caller explicitly chooses a precision and accepts rounding.
+`order` controls input interpretation and `output_order` independently controls
+conversion output.
 
 ## Errors and warnings
 

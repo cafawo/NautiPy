@@ -43,6 +43,10 @@ format_position(...)
 convert_position(...)
 ```
 
+GeoJSON interchange remains grouped in `nautipy.geojson` through explicit
+Point and FeatureCollection functions. The `nautipy` console script delegates
+to the same coordinate functions and does not add another parsing layer.
+
 ### 2. Navigation core — one focused dependency
 
 This layer provides:
@@ -52,21 +56,25 @@ This layer provides:
 - interpolation along a geodesic; and
 - nearest-position lookup for ordinary iterables.
 
-Use one mature, pure-Python implementation of WGS84 geodesics rather than maintaining approximate formulas. GeographicLib is the preferred candidate unless implementation work demonstrates a better fit.
+Use one mature, pure-Python implementation of WGS84 geodesics rather than
+maintaining approximate formulas. GeographicLib 2.1 or newer is the selected
+implementation. It is loaded lazily so coordinate-only use remains independent
+of geodesic code.
 
 The dependency is part of the normal `nautipy` installation only when the navigation API ships. Do not add a broad CRS/GIS framework merely for direct and inverse geodesics.
 
 ### 3. Fix engine — optional extra
 
-The fix engine is valuable but materially heavier. Ship it only after the coordinate and navigation layers are stable.
+The fix engine is valuable but materially heavier. It is isolated from the
+stable coordinate and navigation layers behind an optional extra.
 
-Proposed installation:
+Installation:
 
 ```bash
 python -m pip install "nautipy[fix]"
 ```
 
-The extra may contain NumPy and SciPy for:
+The extra contains only NumPy and SciPy for:
 
 - overdetermined bearing-only fixes;
 - range-only fixes;
@@ -76,6 +84,11 @@ The extra may contain NumPy and SciPy for:
 - geometry diagnostics.
 
 Coordinate and navigation imports must continue to work when the optional extra is absent. Calling optional functionality without its dependencies should raise one short error with the exact installation command.
+
+`nautipy.fix` itself contains standard-library observation and result models.
+It loads the private numerical implementation, NumPy, and SciPy only when a
+candidate or solver function is called. The numerical layer uses bounded local
+east/north metre coordinates and exact WGS84 predictions. See [FIXES.md](FIXES.md).
 
 ## Dependency budget
 
@@ -130,7 +143,8 @@ src/
     ├── geodesic.py       # added with the navigation milestone
     ├── geojson.py        # added when interchange ships
     ├── cli.py            # added only if the CLI ships
-    └── fix.py            # added with the optional fix extra
+    ├── fix.py            # dependency-free public optional models/API
+    └── _fix_solver.py    # lazily loaded numerical implementation
 ```
 
 Parser internals may later move into a private `nautipy._coordinates` package when separate normalization, candidate parsing, and formatting modules make the code clearer. Do not create that hierarchy before it is needed.
@@ -155,23 +169,38 @@ Target 0.1 surface:
 ```python
 Position
 ParseResult
+InverseResult
 
 parse_position
 inspect_position
 format_position
 convert_position
 
+inverse
 distance
 initial_bearing
 destination
 interpolate
+nearest_position
 
 NautiPyError
+NavigationError
 CoordinateError
 CoordinateParseError
 CoordinateRangeError
 AmbiguousCoordinateError
+FixError
+FixDependencyError
 ```
+
+The less frequently used `to_geojson_point`, `from_geojson_point`,
+`to_geojson_feature_collection`, and `from_geojson_feature_collection`
+functions are public from `nautipy.geojson` rather than expanding the
+top-level namespace.
+
+Observation models, candidate geometry, and solver functions are public from
+`nautipy.fix`, not the top-level namespace. Only the common fix exception types
+join the top-level exception hierarchy.
 
 Detailed parser helpers, token types, backend objects, and third-party result values remain private.
 
@@ -180,6 +209,8 @@ All functions accepting a location should support `Position`. Functions may also
 ## Data conventions
 
 - Latitude and longitude: finite decimal-degree `float` values.
+- Optional position identifier: a string or finite JSON-style number.
+- Optional position description: a string; metadata does not affect equality.
 - Latitude range: `[-90, 90]`.
 - Longitude input range: `[-180, 180]`; invalid user input is not silently wrapped.
 - Distance: metres internally.
@@ -216,5 +247,7 @@ These omissions are part of the lightweight design, not missing scaffolding.
 - Pure-Python wheel (`py3-none-any`) while the project contains no compiled code.
 - Static package version in project metadata until a more complex mechanism proves necessary.
 - Wheel and sdist built once per release and tested before publishing.
+- A `nautipy` console entry point backed by the standard-library CLI module.
+- Tag-only publication through tested artifacts and short-lived OIDC identity.
 
 The package should begin at version `0.1.0` for its first public release. Repository experiments that were never distributed do not require a higher starting version or migration path.

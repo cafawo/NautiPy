@@ -26,14 +26,20 @@ A polished coordinate and WGS84 navigation package:
 - immutable `Position` values;
 - geodesic distance, bearings, destination, and interpolation;
 - lightweight GeoJSON and CLI support;
+- an isolated optional `fix` extra when Milestone 4 acceptance passes before
+  the release tag;
 - pip/PyPI release automation; and
 - conda-forge submission.
 
 ### Later 0.x release
 
-An optional `fix` extra for bearing/range position estimation using scientific dependencies.
+Refine the pre-1.0 coordinate, navigation, and optional fix APIs from real use,
+including numerical tolerances and diagnostics, without expanding into general
+GIS.
 
-This sequencing protects the main value and keeps `pip install nautipy` light.
+The optional solver does not change the normal dependency set. This sequencing
+protects the main value and keeps `pip install nautipy` light even when the
+extra ships in the same distribution.
 
 ---
 

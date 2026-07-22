@@ -27,6 +27,13 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
+To develop and run the optional fix engine tests, install its isolated extra:
+
+```bash
+python -m pip install -e ".[fix]"
+python -m unittest discover -s tests -v
+```
+
 To build distributions:
 
 ```bash
@@ -163,6 +170,12 @@ Coordinate modules must remain usable without importing geodesic or scientific p
 - Keep third-party objects behind NautiPy result types.
 - Normalize generated bearings and wrapped bearing residuals correctly.
 - Treat non-convergence and weak geometry as outcomes to report.
+- Define nautical bearing observations from the unknown position toward a
+  known reference; do not use a reciprocal `+ 180°` shortcut on WGS84.
+- Optimize fixes in local metre coordinates and evaluate every prediction with
+  the WGS84 geodesic backend, not raw latitude/longitude least squares.
+- Keep NumPy, SciPy arrays, and optimizer results behind `nautipy.fix` result
+  models, and keep their imports out of ordinary package paths.
 - Never round intermediate values for display.
 
 ## Documentation

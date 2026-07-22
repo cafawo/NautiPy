@@ -1,4 +1,6 @@
 from dataclasses import FrozenInstanceError
+from decimal import Decimal
+from fractions import Fraction
 import math
 import unittest
 
@@ -34,7 +36,7 @@ class PositionTests(unittest.TestCase):
                     with self.assertRaisesRegex(CoordinateRangeError, "finite"):
                         Position(*coordinates)
 
-        with self.assertRaisesRegex(CoordinateRangeError, "finite"):
+        with self.assertRaisesRegex(CoordinateRangeError, "latitude"):
             Position(10**400, 0)
 
     def test_position_rejects_out_of_range_values(self) -> None:
@@ -42,6 +44,10 @@ class PositionTests(unittest.TestCase):
             Position(90.0001, 0)
         with self.assertRaisesRegex(CoordinateRangeError, "longitude"):
             Position(0, -180.0001)
+        with self.assertRaisesRegex(CoordinateRangeError, "latitude"):
+            Position(Fraction(90000000000000001, 10**15), 0)
+        with self.assertRaisesRegex(CoordinateRangeError, "longitude"):
+            Position(0, Decimal("180.000000000000001"))
 
     def test_position_rejects_non_numeric_values(self) -> None:
         with self.assertRaisesRegex(CoordinateParseError, "latitude"):
@@ -58,6 +64,7 @@ class ParsePositionTests(unittest.TestCase):
         self.assertEqual(parse_position("50.12257 8.66570"), expected)
         self.assertEqual(parse_position((50.12257, 8.66570)), expected)
         self.assertIs(parse_position(expected), expected)
+        self.assertEqual(parse_position("+5e+1, +8e+0"), Position(50, 8))
 
     def test_explicit_lonlat_order_swaps_components(self) -> None:
         expected = Position(50.12257, 8.66570)
@@ -111,7 +118,13 @@ class ParsePositionTests(unittest.TestCase):
             parse_position("120, 95", order="auto")
 
     def test_rejects_malformed_pairs(self) -> None:
-        malformed = ("", "50", "50, 8, 1", "north, east")
+        malformed = (
+            "",
+            "50",
+            "50, 8, 1",
+            "+50.1,+008.1,100",
+            "north, east",
+        )
         for value in malformed:
             with self.subTest(value=value):
                 with self.assertRaises(CoordinateParseError):
@@ -132,19 +145,265 @@ class ParsePositionTests(unittest.TestCase):
         with self.assertRaisesRegex(CoordinateParseError, "order"):
             parse_position("50, 8", order=[])  # type: ignore[arg-type]
 
+    def test_exact_range_validation_happens_before_float_conversion(self) -> None:
+        just_over_latitude = Fraction(90000000000000001, 10**15)
+        with self.assertRaisesRegex(CoordinateRangeError, "latitude"):
+            parse_position("90.000000000000001, 0")
+        with self.assertRaisesRegex(CoordinateRangeError, "longitude"):
+            parse_position("0, 180.000000000000001")
+        with self.assertRaisesRegex(CoordinateRangeError, "latitude"):
+            parse_position((just_over_latitude, 0))
+
+        self.assertEqual(
+            parse_position("90.000000000000001, 0", order="auto"),
+            Position(0, 90),
+        )
+        self.assertEqual(
+            parse_position((just_over_latitude, 0), order="auto"),
+            Position(0, 90),
+        )
+
+
+class HumanReadableFormatTests(unittest.TestCase):
+    reference = Position(50.12257, 8.66570)
+
+    def assertReference(self, value: object, **options: object) -> None:
+        position = parse_position(value, **options)  # type: ignore[arg-type]
+        self.assertAlmostEqual(position.latitude, self.reference.latitude, places=10)
+        self.assertAlmostEqual(position.longitude, self.reference.longitude, places=10)
+
+    def test_parses_decimal_degrees_with_hemisphere_variants(self) -> None:
+        values = (
+            "50.12257 N; 8.66570 E",
+            "N 50.12257; E 8.66570",
+            "50.12257 north; 8.66570 east",
+            "50.12257n, 8.66570e",
+            "  north   50.12257 ; east   8.66570  ",
+            "+50.12257 N; +8.66570 E",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertReference(value)
+
+        self.assertEqual(
+            parse_position("50.12257 S; 8.66570 W"),
+            Position(-50.12257, -8.66570),
+        )
+        self.assertEqual(
+            parse_position("S 50.12257; W 8.66570"),
+            Position(-50.12257, -8.66570),
+        )
+
+    def test_parses_ddm_symbol_colon_word_and_space_forms(self) -> None:
+        values = (
+            "50° 7.3542' N; 8° 39.942' E",
+            "N 50 7.3542; E 8 39.942",
+            "50 deg 7.3542 min N; 8 degrees 39.942 minutes E",
+            "50:7.3542 N; 8:39.942 E",
+            ("50° 7.3542' N", "8° 39.942' E"),
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertReference(value)
+
+    def test_parses_dms_ascii_unicode_word_and_space_forms(self) -> None:
+        values = (
+            "50° 7' 21.252\" N; 8° 39' 56.52\" E",
+            "N 50 7 21.252; E 8 39 56.52",
+            "50 degrees 7 minutes 21.252 seconds N; "
+            "8 degrees 39 minutes 56.52 seconds E",
+            "50:7:21.252 N; 8:39:56.52 E",
+            "50º 7′ 21.252″ N; 8º 39′ 56.52″ E",
+        )
+        for value in values:
+            with self.subTest(value=value):
+                self.assertReference(value)
+
+    def test_normalizes_unicode_minus(self) -> None:
+        self.assertEqual(
+            parse_position("−50.5, −8.25"),
+            Position(-50.5, -8.25),
+        )
+
+    def test_axis_evidence_overrides_source_and_requested_order(self) -> None:
+        reversed_text = "8.66570 E, 50.12257 N"
+        for order in ("latlon", "lonlat", "auto"):
+            with self.subTest(order=order):
+                self.assertReference(reversed_text, order=order)
+
+        self.assertReference("50.12257 N; 8.66570", order="auto")
+        self.assertReference("8.66570; 50.12257 N", order="auto")
+
+    def test_explicit_format_selection_and_alias(self) -> None:
+        self.assertReference("50.12257, 8.66570", format="dd")
+        self.assertReference(
+            "50° 7.3542' N; 8° 39.942' E",
+            format="ddm",
+        )
+        self.assertReference(
+            "50° 7.3542' N; 8° 39.942' E",
+            format="dmm",
+        )
+        self.assertReference(
+            "50° 7' 21.252\" N; 8° 39' 56.52\" E",
+            format="dms",
+        )
+
+        with self.assertRaisesRegex(CoordinateParseError, "requested dd"):
+            parse_position(
+                "50° 7.3542' N; 8° 39.942' E",
+                format="dd",
+            )
+        with self.assertRaisesRegex(CoordinateParseError, "requested ddm"):
+            parse_position((50.12257, 8.66570), format="ddm")
+        with self.assertRaisesRegex(CoordinateParseError, "format"):
+            parse_position("50, 8", format="utm")
+
+    def test_detects_each_component_format_independently(self) -> None:
+        mixed_values = (
+            "50.12257 N; 8° 39.942' E",
+            "N 50° 7.3542'; 8.66570 E",
+            ("50.12257 N", "8° 39.942' E"),
+            (50.12257, "8° 39.942' E"),
+        )
+        for value in mixed_values:
+            with self.subTest(value=value):
+                self.assertReference(value)
+
+        with self.assertRaisesRegex(CoordinateParseError, "requested dd"):
+            parse_position(
+                "50.12257 N; 8° 39.942' E",
+                format="dd",
+            )
+
+    def test_supports_unambiguous_decimal_comma(self) -> None:
+        self.assertReference("50,12257; 8,66570")
+        self.assertReference("50,12257 / 8,66570")
+        self.assertReference("50,12257 N; 8,66570 E")
+        self.assertReference("50° 7,3542' N; 8° 39,942' E")
+        self.assertReference("50,12257 N, 8,66570 E")
+        self.assertReference("50° 7,3542', 8° 39,942'")
+        self.assertReference("50° 7' 21,252\", 8° 39' 56,52\"")
+
+        with self.assertRaisesRegex(
+            AmbiguousCoordinateError,
+            "semicolon|dot decimals",
+        ):
+            parse_position("50,12257, 8,66570")
+        with self.assertRaises(AmbiguousCoordinateError):
+            parse_position("50,12257, 8.66570")
+        with self.assertRaises(AmbiguousCoordinateError):
+            parse_position("50,12257 8,66570")
+        with self.assertRaises(AmbiguousCoordinateError):
+            parse_position("50, 8,200")
+        with self.assertRaises(AmbiguousCoordinateError):
+            parse_position("50,12257°, 8,66570°")
+        with self.assertRaises(AmbiguousCoordinateError):
+            parse_position(",5, ,8")
+
+    def test_rejects_sign_and_hemisphere_conflicts(self) -> None:
+        invalid = (
+            "-50 N; 8 E",
+            "-50 S; 8 E",
+            "+50 S; 8 E",
+            "50 N N; 8 E",
+            "50 N; 8 E E",
+            "50 N; 8 N",
+        )
+        for value in invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(CoordinateParseError):
+                    parse_position(value)
+
+    def test_rejects_invalid_subcomponents_and_extrema(self) -> None:
+        range_errors = (
+            "50° 60' N; 8° 0' E",
+            "50° -1' N; 8° 0' E",
+            "50° 0' 60\" N; 8° 0' 0\" E",
+            "50° 0' -1\" N; 8° 0' 0\" E",
+            "90° 0.1' N; 8° 0' E",
+            "90° 0.000000000000000000000000000001' N; 8° 0' E",
+            "50° 0' N; 180° 0.1' E",
+            "50° 0' 0\" N; "
+            "180° 0' 0.000000000000000000000000000001\" E",
+            "50° 60,1', 8° 39,9'",
+            "50° 7' 60,1\", 8° 39' 56,5\"",
+        )
+        for value in range_errors:
+            with self.subTest(value=value):
+                with self.assertRaises(CoordinateRangeError):
+                    parse_position(value)
+
+        with self.assertRaises(CoordinateParseError):
+            parse_position("50.5° 7' N; 8° 0' E")
+        with self.assertRaises(CoordinateParseError):
+            parse_position("50° 7' N extra; 8° 0' E")
+
+    def test_rejects_pathologically_long_or_split_heavy_text(self) -> None:
+        with self.assertRaisesRegex(CoordinateParseError, "must not exceed"):
+            parse_position("1 " * 3000)
+        with self.assertRaisesRegex(CoordinateParseError, "too many"):
+            parse_position(" ".join("1" for _ in range(300)))
+
+    def test_rejects_bare_numeric_grouping_that_could_hide_altitude(self) -> None:
+        invalid = (
+            "50 8 100",
+            "50 8 10 100",
+            "50 8 10 100 20",
+            "50 7 8 39",
+        )
+        for value in invalid:
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(
+                    AmbiguousCoordinateError,
+                    "altitude|insert ';'|explicit format",
+                ):
+                    parse_position(value)
+
+        self.assertReference("50 7.3542; 8 39.942", format="ddm")
+        for value in ("999 999 999", "nan 8 100", "inf inf inf"):
+            with self.subTest(value=value):
+                with self.assertRaises(CoordinateRangeError):
+                    parse_position(value)
+
+    def test_accepts_legal_ddm_and_dms_extrema(self) -> None:
+        self.assertEqual(
+            parse_position("90° 0' N; 180° 0' E"),
+            Position(90, 180),
+        )
+        self.assertEqual(
+            parse_position("90° 0' 0\" S; 180° 0' 0\" W"),
+            Position(-90, -180),
+        )
+
+    def test_rejects_non_ascii_hemisphere_lookalikes(self) -> None:
+        with self.assertRaises(CoordinateParseError):
+            parse_position("50 ſ; 8 E")
+
+    def test_human_formats_round_trip_through_canonical_dd(self) -> None:
+        inputs = (
+            "50.12257 N; 8.66570 E",
+            "50° 7.3542' N; 8° 39.942' E",
+            "50° 7' 21.252\" N; 8° 39' 56.52\" E",
+        )
+        for value in inputs:
+            with self.subTest(value=value):
+                parsed = parse_position(value)
+                self.assertEqual(parse_position(format_position(parsed)), parsed)
+
 
 class FormatPositionTests(unittest.TestCase):
     def test_formats_canonical_decimal_degrees(self) -> None:
         position = Position(50.12257, 8.66570)
 
-        self.assertEqual(format_position(position), "50.12257, 8.6657")
+        self.assertEqual(format_position(position), "50.122570, 8.665700")
         self.assertEqual(
             format_position(position, precision=3),
             "50.123, 8.666",
         )
         self.assertEqual(
             format_position(position, order="lonlat"),
-            "8.6657, 50.12257",
+            "8.665700, 50.122570",
         )
 
     def test_formatting_does_not_emit_negative_zero(self) -> None:
@@ -173,9 +432,22 @@ class PublicApiTests(unittest.TestCase):
             nautipy.__all__,
             [
                 "Position",
+                "ParseResult",
                 "parse_position",
+                "inspect_position",
                 "format_position",
+                "convert_position",
+                "InverseResult",
+                "inverse",
+                "distance",
+                "initial_bearing",
+                "destination",
+                "interpolate",
+                "nearest_position",
                 "NautiPyError",
+                "NavigationError",
+                "FixError",
+                "FixDependencyError",
                 "CoordinateError",
                 "CoordinateParseError",
                 "CoordinateRangeError",

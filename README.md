@@ -2,25 +2,31 @@
 
 **A small Python package for effortless coordinate handling and trustworthy WGS84 navigation calculations.**
 
-> **Status:** clean pre-release rewrite. The experimental code previously in this repository is being replaced and is not a supported API. The first public package will start at version `0.1.0`.
+> **Status:** clean pre-release rewrite. The experimental code previously in this repository has been replaced and is not a supported API. The first public package will start at version `0.1.0`.
 
 ## Current development slice
 
-The installable development package currently provides validated decimal-degree
-positions, explicit latitude/longitude ordering, and canonical decimal output:
+The installable development package provides complete coordinate intake,
+inspection, formatting, and conversion for DD, DDM, DMS, ISO 6709, and NMEA
+field pairs. It also provides WGS84 distance, bearings, destinations,
+interpolation, nearest-position lookup, GeoJSON interchange, and a small
+command-line interface. An optional numerical extra adds diagnosed bearing and
+range position fixes without changing the normal installation:
 
 ```python
 from nautipy import format_position, parse_position
 
-position = parse_position("50.12257, 8.66570")
-print(format_position(position))  # 50.12257, 8.6657
+position = parse_position("50° 7' 21.252\" N; 8° 39' 56.52\" E")
+print(format_position(position))  # 50.122570, 8.665700
 ```
 
 Use `order="lonlat"` for longitude-first input. `order="auto"` accepts cases
 where numeric range proves the order or both orders produce the same position;
 materially different candidates raise an actionable
-`AmbiguousCoordinateError`. The additional formats and navigation functions
-below are the planned `0.1.0` surface and land in later milestones.
+`AmbiguousCoordinateError`. Detection is automatic, or `format="dd"`,
+`"ddm"` (`"dmm"` is accepted as an input alias), `"dms"`, `"iso6709"`, or
+`"nmea"` can select a format explicitly. Direction words and decimal commas
+with an unambiguous pair separator are also accepted.
 
 ## What NautiPy is for
 
@@ -40,14 +46,17 @@ The main value is:
 - clear errors when latitude/longitude order or syntax is genuinely ambiguous;
 - conversion among decimal degrees, DDM, DMS, ISO 6709, and NMEA fields;
 - a small immutable `Position` model;
-- WGS84 distance, bearing, destination, and interpolation; and
+- WGS84 distance, bearing, destination, and interpolation;
+- GeoJSON Point and FeatureCollection interchange;
+- `nautipy convert` and `nautipy inspect` command-line workflows; and
 - a lightweight installation without a general GIS or scientific stack.
 
-A bearing/range position-fix engine is planned later as an optional extra so ordinary users do not install NumPy and SciPy unnecessarily.
+Bearing/range fixing is isolated in `nautipy.fix`; ordinary users do not
+install or import NumPy and SciPy.
 
-## Target 0.1 API
+## Coordinate API
 
-The examples below describe the intended first public release and will be converted into tested examples as milestones land.
+These examples are covered by the installed-artifact smoke test.
 
 ### Parse whatever notation you have
 
@@ -69,6 +78,7 @@ from nautipy import inspect_position
 result = inspect_position("5007.3542,N,00839.9420,E")
 print(result.position)
 print(result.format)
+print(result.evidence)
 print(result.normalizations)
 ```
 
@@ -80,23 +90,114 @@ from nautipy import convert_position
 text = convert_position(
     "50.12257, 8.66570",
     to="dms",
-    precision=2,
 )
+
+assert text == "50° 7′ 21.25″ N; 8° 39′ 56.52″ E"
 ```
+
+`format_position` uses documented fixed defaults: six degree decimals for DD
+and ISO 6709, four minute decimals for DDM and NMEA, and two second decimals
+for DMS. Pass `precision=` to choose the decimal places in the least-significant
+displayed unit. DDM and DMS default to Unicode symbols and hemispheres; use
+`notation="signed"` or `symbols="ascii"` when needed.
 
 ### Calculate navigation values
 
 ```python
-from nautipy import destination, distance, initial_bearing
+from nautipy import destination, distance, inverse
 
 start = "50.12257, 8.66570"
 end = destination(start, bearing=90, distance=12_000)
 
-print(distance(start, end))
-print(initial_bearing(start, end))
+assert abs(distance(start, end) - 12_000) < 1e-6
+
+result = inverse(start, end)
+print(result.initial_bearing)
+print(result.final_bearing)
 ```
 
-Distances use metres and bearings use true degrees by default.
+Distances use metres and bearings use true degrees. Navigation follows WGS84
+ellipsoidal geodesics through GeographicLib; it does not use a spherical
+approximation. See the [navigation specification](docs/NAVIGATION.md) for
+coincident positions, interpolation, and nearest-position behavior.
+
+### Estimate a bearing/range fix
+
+Install the optional numerical dependencies only when needed:
+
+```bash
+python -m pip install "nautipy[fix]"
+```
+
+```python
+from nautipy import Position
+from nautipy.fix import RangeObservation, solve_fix
+
+references = (
+    Position(50.116135, 8.670277),
+    Position(50.112836, 8.666753),
+    Position(50.110347, 8.659873),
+)
+observations = tuple(
+    RangeObservation(reference, measured, uncertainty=2.0)
+    for reference, measured in zip(
+        references,
+        (1_275.251, 1_599.237, 1_917.145),
+    )
+)
+
+result = solve_fix(ranges=observations)
+if result.success:
+    print(result.position)
+else:
+    print(result.status, result.competing_positions)
+```
+
+Bearings are measured at the unknown position toward known references. Every
+observation requires a one-standard-deviation uncertainty, and every result
+reports residuals plus convergence and geometry diagnostics. See the
+[bearing/range fix specification](docs/FIXES.md) for direction, units,
+ambiguity, regional search bounds, and covariance behavior.
+
+### Exchange GeoJSON
+
+```python
+from nautipy import Position
+from nautipy.geojson import (
+    from_geojson_feature_collection,
+    to_geojson_feature_collection,
+)
+
+stations = [
+    Position(
+        50.12257,
+        8.66570,
+        identifier="station-1",
+        description="Reference station",
+    ),
+]
+collection = to_geojson_feature_collection(stations)
+assert from_geojson_feature_collection(collection) == tuple(stations)
+```
+
+GeoJSON coordinates are always longitude/latitude. Collection identifiers and
+descriptions round trip through standard Feature members; unsupported
+geometry is rejected. See [GeoJSON interchange](docs/GEOJSON.md).
+
+### Convert and inspect from the command line
+
+```console
+$ nautipy convert "50° 7.3542' N; 8° 39.942' E" --to dd
+50.122570, 8.665700
+
+$ nautipy inspect "+50.12257+008.66570/"
+```
+
+`inspect` writes deterministic JSON containing the selected position, detected
+format, normalization evidence, source resolution, and candidate diagnostics.
+Both commands are offline and use the same public parser and formatter as the
+Python API. They write UTF-8 output consistently, including when output is
+redirected. `python -m nautipy` provides the same interface.
 
 ## Input philosophy
 
@@ -114,8 +215,10 @@ parse_position("8, 50", order="auto")    # raises AmbiguousCoordinateError
 The package is deliberately layered:
 
 - **coordinates:** Python standard library only;
-- **normal navigation:** at most one focused pure-Python WGS84 dependency;
-- **advanced fixes:** optional `nautipy[fix]` extra in a later release.
+- **normal navigation:** one focused pure-Python WGS84 dependency,
+  GeographicLib;
+- **advanced fixes:** NumPy and SciPy only through the optional
+  `nautipy[fix]` extra.
 
 NautiPy will not require pyproj, Shapely, pandas, NumPy, or SciPy for ordinary coordinate and navigation use.
 
@@ -133,11 +236,19 @@ The repository-local plan is designed for both human contributors and coding age
 - [Product direction](docs/PRODUCT.md)
 - [Architecture and dependency policy](docs/ARCHITECTURE.md)
 - [Coordinate detection and conversion specification](docs/COORDINATES.md)
+- [WGS84 navigation specification](docs/NAVIGATION.md)
+- [Bearing and range fix specification](docs/FIXES.md)
+- [GeoJSON interchange](docs/GEOJSON.md)
 - [Implementation roadmap](ROADMAP.md)
 - [Release and distribution plan](docs/RELEASING.md)
 - [Contribution guide](CONTRIBUTING.md)
 
-The first implementation milestone replaces the experimental project with a clean `src/` package, immutable `Position`, decimal-degree parsing and formatting, standard-library tests, package builds, and CI. It intentionally provides no compatibility layer for the old code.
+The clean rewrite provides an immutable `Position`, complete coordinate
+conversion, WGS84 navigation, standard-library tests, package builds, and CI.
+It also provides GeoJSON interchange and a coordinate conversion/inspection
+CLI. The optional fix engine adds weighted regional position estimates with
+diagnostics, and the rewrite intentionally provides no compatibility layer for
+the old code.
 
 ## Distribution plan
 

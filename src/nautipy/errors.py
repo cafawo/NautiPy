@@ -5,6 +5,18 @@ class NautiPyError(Exception):
     """Base class for package-specific errors."""
 
 
+class NavigationError(NautiPyError):
+    """Raised for invalid or undefined navigation calculations."""
+
+
+class FixError(NautiPyError):
+    """Raised for invalid position-fix inputs or calculations."""
+
+
+class FixDependencyError(FixError, ImportError):
+    """Raised when optional scientific fix dependencies are unavailable."""
+
+
 class CoordinateError(NautiPyError):
     """Base class for coordinate input and formatting errors."""
 
@@ -19,3 +31,12 @@ class CoordinateRangeError(CoordinateError):
 
 class AmbiguousCoordinateError(CoordinateError):
     """Raised when multiple materially different positions are valid."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        candidates: tuple[object, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.candidates = candidates

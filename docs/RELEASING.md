@@ -43,6 +43,9 @@ A workflow may trigger on `v*`, but an early validation job must reject invalid 
 - Distributions: generated from the tagged commit.
 
 The release fails if these disagree. Keep a static version in `pyproject.toml` until dynamic versioning demonstrably removes more complexity than it adds.
+Each release uses one exact, dated, nonempty changelog heading such as
+`## 0.1.0 - 2026-07-22`; the text below that heading becomes the GitHub
+Release notes.
 
 ## Continuous integration
 

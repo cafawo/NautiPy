@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nautipy"
 version = "0.1.0"
-description = "Validated coordinate handling for Python"
+description = "Coordinate conversion and WGS84 navigation for Python"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 license = "MIT"
@@ -28,7 +28,18 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
 ]
-dependencies = []
+dependencies = [
+  "geographiclib>=2.1",
+]
+
+[project.optional-dependencies]
+fix = [
+  "numpy>=1.23.5",
+  "scipy>=1.14.1",
+]
+
+[project.scripts]
+nautipy = "nautipy.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/cafawo/NautiPy"
