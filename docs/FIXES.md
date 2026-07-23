@@ -146,6 +146,27 @@ values when that observation kind is present.
 Jacobian callback. `function_evaluations` is reported separately; neither is a
 raw SciPy result object.
 
+`FixResult` groups its remaining diagnostics as follows:
+
+- `position`, `success`, `status`, and `message` describe the selected outcome;
+- `competing_positions` contains all retained alternatives only for an
+  ambiguous result;
+- `rank` is the numerical rank of the weighted local Jacobian, and
+  `condition_number` is present only for full-rank geometry;
+- `degrees_of_freedom` is the residual count minus two, and
+  `reduced_chi_square` is `objective / degrees_of_freedom` only when that count
+  is positive; and
+- `warnings` records non-fatal fit, geometry, boundary, or uncertainty
+  concerns.
+
+When no fit was evaluated, residuals and all derived fit metrics are absent.
+When residuals are present, the objective, applicable RMS values, degrees of
+freedom, and positive-degree reduced chi-square form one complete diagnostic
+group rather than a partially populated result. Every evaluated fit carries a
+rank, while a condition number is present exactly when that rank is two.
+Solver counts are zero without an evaluated fit and positive when one is
+retained.
+
 ## Status and geometry
 
 `FixStatus.CONVERGED` is the only successful status. A successful result has a
@@ -188,8 +209,15 @@ bearing geometry likewise carries a warning even when it has one candidate.
 
 The current numerical classifications use these explicit thresholds:
 
+- WGS84 points no more than `0.0000001` metres apart are treated as
+  coincident, and bearings from a coincident reference that differ by no more
+  than `0.0000000001` degrees are treated as equivalent;
 - candidate roots and solver basins at most 1 millimetre apart are treated as
   the same position;
+- WGS84 search-disk membership allows 1 millimetre of numerical tolerance;
+- an accepted exact two-bearing candidate has no natural bearing residual
+  above `0.00001` degrees, and an accepted exact two-range candidate has no
+  natural range residual above 1 millimetre;
 - distinct converged basins whose objective is no more than
   `5.99146454710798`
   above the best objective are statistically comparable and produce
@@ -197,14 +225,29 @@ The current numerical classifications use these explicit thresholds:
 - a rank-two Jacobian condition number above `1,000` warns about weak geometry,
   while a missing second rank or a condition number above `1,000,000` produces
   `DEGENERATE`;
-- a two-bearing candidate also warns about weak crossing geometry when the
-  absolute sine of its ray-crossing angle is below `0.001`;
+- bearing seed geometry is treated as parallel below an absolute crossing-angle
+  sine of `0.000001`; an otherwise stable two-bearing candidate warns about
+  weak crossing geometry below `0.001`;
+- two-range circle topology uses scale-aware floating-point guards: linear
+  comparisons allow the greater of 1 micrometre and 64 ULPs at the input
+  scale, while squared comparisons allow the greater of `0.000000000001`
+  square metres and 8 ULPs at the squared scale;
+- numerical Jacobian rank counts singular values strictly greater than the
+  largest singular value multiplied by floating-point machine epsilon and the
+  greater Jacobian dimension;
 - dimensionless standardized RMS above `2` warns that residuals are large
   relative to the stated uncertainties;
 - a fix beyond 90% of the search radius warns that it is near the domain edge;
   and
 - a 95% semi-major uncertainty axis above 25% of the search radius warns that
   uncertainty is large relative to the domain.
+
+The independent solver-reference tests freeze exact mixed-observation
+networks calculated outside NautiPy with PROJ 9.7.1 through pyproj 3.7.2.
+They include a mid-latitude network and a high-latitude network crossing the
+antimeridian, and require the recovered position to agree within 1 centimetre.
+PROJ and pyproj are reference-generation tools only; neither is a NautiPy
+runtime dependency.
 
 ## Local uncertainty
 
@@ -216,9 +259,10 @@ uncertainties are declared as absolute standard deviations.
 The result also reports east and north standard deviations, their correlation,
 and the semi-major and semi-minor axes of the local 95% confidence ellipse.
 The major-axis bearing is clockwise from true north in `[0, 180)` and is `None`
-for effectively isotropic uncertainty. This is a local linearized estimate,
-not a safety bound. It is withheld for ambiguous, non-converged, rank-deficient,
-or numerically invalid geometry.
+when the covariance eigenvalues agree to a relative tolerance of `0.000000001`
+or an absolute tolerance of `0.000000000001` square metres. This is a local
+linearized estimate, not a safety bound. It is withheld for ambiguous,
+non-converged, rank-deficient, or numerically invalid geometry.
 
 ## Limitations
 

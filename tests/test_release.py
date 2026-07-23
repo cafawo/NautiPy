@@ -388,5 +388,108 @@ class ReleaseCommandTests(unittest.TestCase):
             )
 
 
+class ReleaseWorkflowTests(unittest.TestCase):
+    def test_ci_and_release_use_the_same_current_action_pins(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        ci_workflow = root / ".github/workflows/ci.yml"
+        release_workflow = root / ".github/workflows/release.yml"
+        if not ci_workflow.is_file() or not release_workflow.is_file():
+            self.skipTest(
+                "repository workflows are not shipped in the source archive"
+            )
+
+        ci_text = ci_workflow.read_text(encoding="utf-8")
+        release_text = release_workflow.read_text(encoding="utf-8")
+
+        def pins(text: str, action: str) -> set[str]:
+            marker = f"uses: {action}@"
+            return {
+                line.split(marker, 1)[1].split()[0]
+                for line in text.splitlines()
+                if marker in line
+            }
+
+        for action in (
+            "actions/checkout",
+            "actions/setup-python",
+            "actions/upload-artifact",
+        ):
+            with self.subTest(action=action):
+                ci_pins = pins(ci_text, action)
+                self.assertEqual(len(ci_pins), 1)
+                self.assertEqual(ci_pins, pins(release_text, action))
+
+        for workflow_text in (ci_text, release_text):
+            for line in workflow_text.splitlines():
+                stripped = line.strip()
+                if not stripped.startswith(("- uses:", "uses:")):
+                    continue
+                action = stripped.split("uses:", 1)[1].strip()
+                self.assertIn("@", action)
+                reference = action.rsplit("@", 1)[1].split()[0]
+                self.assertRegex(reference, r"^[0-9a-f]{40}$")
+
+    def test_ci_has_an_always_running_aggregate_gate(self) -> None:
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/ci.yml"
+        )
+        if not workflow.is_file():
+            self.skipTest(
+                "repository workflow is not shipped in the source archive"
+            )
+
+        text = workflow.read_text(encoding="utf-8")
+        aggregate = text.split("  ci-success:\n", 1)[1]
+        self.assertIn("name: CI success", aggregate)
+        self.assertIn("if: ${{ always() }}", aggregate)
+        for job in (
+            "test",
+            "fix-test",
+            "fix-minimum-dependencies",
+            "cross-platform-smoke",
+            "cross-platform-fix-smoke",
+            "build",
+        ):
+            with self.subTest(job=job):
+                self.assertIn(f"${{{{ needs.{job}.result }}}}", aggregate)
+
+    def test_ci_pins_every_declared_minimum_dependency_exactly(self) -> None:
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/ci.yml"
+        )
+        if not workflow.is_file():
+            self.skipTest(
+                "repository workflow is not shipped in the source archive"
+            )
+
+        text = workflow.read_text(encoding="utf-8")
+        minimum_job = text.split("  fix-minimum-dependencies:\n", 1)[1]
+        minimum_job = minimum_job.split("\n  cross-platform-smoke:", 1)[0]
+        for requirement in (
+            "geographiclib==2.1",
+            "numpy==1.23.5",
+            "scipy==1.14.1",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(f'"{requirement}"', minimum_job)
+
+    def test_github_release_has_explicit_repository_context(self) -> None:
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/release.yml"
+        )
+        if not workflow.is_file():
+            self.skipTest(
+                "repository workflow is not shipped in the source archive"
+            )
+
+        text = workflow.read_text(encoding="utf-8")
+        github_release_job = text.split("  github-release:\n", 1)[1]
+        self.assertIn("GH_REPO: ${{ github.repository }}", github_release_job)
+        self.assertIn('gh release create "${GITHUB_REF_NAME}"', github_release_job)
+
+
 if __name__ == "__main__":
     unittest.main()

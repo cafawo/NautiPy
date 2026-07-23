@@ -9,6 +9,8 @@ from numbers import Real
 
 from .errors import CoordinateParseError, CoordinateRangeError
 
+__all__ = ["Position"]
+
 
 def _validated_component(value: object, *, axis: str, limit: float) -> float:
     if isinstance(value, bool) or not isinstance(value, (Real, Decimal)):

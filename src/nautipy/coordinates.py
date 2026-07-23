@@ -32,13 +32,31 @@ CoordinateFormat: TypeAlias = Literal[
 ]
 DetectedFormat: TypeAlias = CoordinateFormat | Literal["mixed"]
 Axis: TypeAlias = Literal["lat", "lon"]
-CandidateStatus: TypeAlias = Literal[
+CandidateOutcome: TypeAlias = Literal[
     "selected",
     "equivalent",
     "rejected",
     "competing",
 ]
+PositionInput: TypeAlias = (
+    Position | str | Mapping[object, object] | Sequence[object]
+)
 _ExactNumber: TypeAlias = Decimal | Fraction
+
+__all__ = [
+    "CandidateDiagnostic",
+    "CandidateOutcome",
+    "CoordinateFormat",
+    "CoordinateOrder",
+    "DetectedFormat",
+    "OutputOrder",
+    "ParseResult",
+    "PositionInput",
+    "convert_position",
+    "format_position",
+    "inspect_position",
+    "parse_position",
+]
 
 _SIGNED_NUMBER = (
     r"[+-]?(?:(?:\d+(?:[.,]\d+)?|[.,]\d+)"
@@ -63,7 +81,7 @@ class CandidateDiagnostic:
     format: str
     source_order: OutputOrder | None
     position: Position | None
-    outcome: CandidateStatus
+    outcome: CandidateOutcome
     evidence: tuple[str, ...] = ()
     reason: str | None = None
 
@@ -81,8 +99,8 @@ class ParseResult:
     normalized_tokens: tuple[str, ...]
     normalizations: tuple[str, ...]
     warnings: tuple[str, ...]
-    latitude_resolution: _ExactNumber | None
-    longitude_resolution: _ExactNumber | None
+    latitude_resolution: Decimal | Fraction | None
+    longitude_resolution: Decimal | Fraction | None
     candidates: tuple[CandidateDiagnostic, ...]
 
 
@@ -1442,7 +1460,7 @@ def _diagnostic_tokens(
 def _candidate_diagnostic(
     candidate: _ResolvedCandidate,
     *,
-    outcome: CandidateStatus,
+    outcome: CandidateOutcome,
 ) -> CandidateDiagnostic:
     return CandidateDiagnostic(
         format=candidate.format,
@@ -1554,7 +1572,7 @@ def _parse_result(
 
 
 def inspect_position(
-    value: Position | str | Mapping[object, object] | Sequence[object],
+    value: PositionInput,
     *,
     order: CoordinateOrder = "latlon",
     format: str | None = None,
@@ -1573,7 +1591,7 @@ def inspect_position(
 
 
 def parse_position(
-    value: Position | str | Mapping[object, object] | Sequence[object],
+    value: PositionInput,
     *,
     order: CoordinateOrder = "latlon",
     format: str | None = None,
@@ -2050,7 +2068,7 @@ def _inferred_output_precision(
 
 
 def convert_position(
-    value: Position | str | Mapping[object, object] | Sequence[object],
+    value: PositionInput,
     *,
     to: str = "dd",
     order: CoordinateOrder = "latlon",

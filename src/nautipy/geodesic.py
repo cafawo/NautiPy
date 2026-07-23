@@ -2,28 +2,34 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from functools import lru_cache
 from math import isfinite
 from numbers import Rational, Real
-from typing import TYPE_CHECKING, TypeAlias
+import typing as _typing
 
-from .coordinates import parse_position
+from .coordinates import PositionInput, parse_position
 from .errors import NavigationError
 from .position import Position
 
-if TYPE_CHECKING:
+if _typing.TYPE_CHECKING:
     from geographiclib.geodesic import Geodesic
 
-
-_PositionInput: TypeAlias = (
-    Position | str | Mapping[object, object] | Sequence[object]
-)
 _MIN_OUTPUT_DISTANCE_METRES = 1e-7
 _MIN_OUTPUT_DISTANCE_EXACT = Fraction(1, 10_000_000)
+
+__all__ = [
+    "InverseResult",
+    "destination",
+    "distance",
+    "initial_bearing",
+    "interpolate",
+    "inverse",
+    "nearest_position",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +54,7 @@ def _wgs84() -> Geodesic:
     return Geodesic.WGS84
 
 
-def _coerce_position(value: _PositionInput) -> Position:
+def _coerce_position(value: PositionInput) -> Position:
     return value if isinstance(value, Position) else parse_position(value)
 
 
@@ -261,7 +267,7 @@ def _inverse_positions(start: Position, end: Position) -> InverseResult:
     )
 
 
-def inverse(start: _PositionInput, end: _PositionInput) -> InverseResult:
+def inverse(start: PositionInput, end: PositionInput) -> InverseResult:
     """Return the shortest-path WGS84 distance and endpoint bearings."""
 
     return _inverse_positions(
@@ -270,13 +276,13 @@ def inverse(start: _PositionInput, end: _PositionInput) -> InverseResult:
     )
 
 
-def distance(start: _PositionInput, end: _PositionInput) -> float:
+def distance(start: PositionInput, end: PositionInput) -> float:
     """Return the shortest WGS84 geodesic distance in metres."""
 
     return inverse(start, end).distance
 
 
-def initial_bearing(start: _PositionInput, end: _PositionInput) -> float:
+def initial_bearing(start: PositionInput, end: PositionInput) -> float:
     """Return the initial true bearing in degrees clockwise from north."""
 
     bearing = inverse(start, end).initial_bearing
@@ -288,7 +294,7 @@ def initial_bearing(start: _PositionInput, end: _PositionInput) -> float:
 
 
 def destination(
-    start: _PositionInput,
+    start: PositionInput,
     *,
     bearing: Real | Decimal,
     distance: Real | Decimal,
@@ -323,8 +329,8 @@ def destination(
 
 
 def interpolate(
-    start: _PositionInput,
-    end: _PositionInput,
+    start: PositionInput,
+    end: PositionInput,
     *,
     fraction: Real | Decimal = 0.5,
 ) -> Position:
@@ -375,8 +381,8 @@ def interpolate(
 
 
 def nearest_position(
-    origin: _PositionInput,
-    candidates: Iterable[_PositionInput],
+    origin: PositionInput,
+    candidates: Iterable[PositionInput],
 ) -> Position:
     """Return the first candidate nearest to ``origin`` on WGS84."""
 

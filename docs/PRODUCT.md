@@ -30,7 +30,9 @@ There will be:
 - no migration guide from the experimental layout; and
 - no obligation to preserve incorrect formulas or awkward call patterns.
 
-Before version 1.0, the API may change when doing so materially improves simplicity or correctness. Starting at 1.0, documented APIs follow semantic versioning.
+Before version 1.0, minor releases may change the API when doing so materially
+improves simplicity or correctness; patch releases should remain compatible.
+Starting at 1.0, documented APIs follow semantic versioning.
 
 ## Product principles
 

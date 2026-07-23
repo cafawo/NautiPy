@@ -168,6 +168,8 @@ Target 0.1 surface:
 
 ```python
 Position
+PositionInput
+CandidateDiagnostic
 ParseResult
 InverseResult
 

@@ -241,6 +241,7 @@ The repository-local plan is designed for both human contributors and coding age
 - [GeoJSON interchange](docs/GEOJSON.md)
 - [Implementation roadmap](ROADMAP.md)
 - [Release and distribution plan](docs/RELEASING.md)
+- [Support and API stability policy](docs/SUPPORT.md)
 - [Contribution guide](CONTRIBUTING.md)
 
 The clean rewrite provides an immutable `Position`, complete coordinate

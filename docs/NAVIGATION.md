@@ -98,4 +98,17 @@ Reference tests use GeographicLib's independently generated WGS84
 [geodesic test data](https://geographiclib.sourceforge.io/C++/doc/geodesic.html#testgeod),
 including short, near-antipodal, high-latitude, and antimeridian cases.
 
+## Reference tolerances
+
+For the frozen high-precision GeodTest cases, inverse distances must agree
+within 1 micrometre and endpoint bearings within `5e-10` degrees. Replaying an
+inverse result through `destination` must recover each endpoint within
+`1e-12` degrees per axis. Published examples rounded to five decimal places,
+such as the dateline waypoint, use the corresponding half-unit tolerance of
+`5e-6` degrees.
+
+These are regression thresholds for the current reference corpus, not
+uncertainty estimates or guarantees that user inputs are accurate to those
+scales. Display rounding and input precision remain separate concerns.
+
 NautiPy is a calculation library, not certified navigation equipment.

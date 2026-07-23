@@ -7,28 +7,39 @@ module and constructing observations does not require the ``fix`` extra.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 from enum import Enum
 from fractions import Fraction
-from math import atan2, degrees, hypot, isclose, isfinite, log, sqrt
+from math import (
+    atan2,
+    copysign,
+    degrees,
+    isfinite,
+    log,
+    nextafter,
+    sqrt,
+    ulp,
+)
 from numbers import Rational, Real
-from typing import TypeAlias
 
-from .coordinates import parse_position
+from .coordinates import PositionInput, parse_position
 from .errors import FixDependencyError, FixError
 from .position import Position
 
-
-_PositionInput: TypeAlias = (
-    Position | str | Mapping[object, object] | Sequence[object]
-)
 _FIX_INSTALL_MESSAGE = (
     "optional fix calculations require NumPy and SciPy; install them with: "
     'python -m pip install "nautipy[fix]"'
 )
 _CHI_SQUARE_2D_95_SCALE = sqrt(-2.0 * log(0.05))
+_DEGENERATE_CONDITION = 1_000_000.0
+_COVARIANCE_DECIMAL_CONTEXT = Context(
+    prec=80,
+    rounding=ROUND_HALF_EVEN,
+    Emin=-999999,
+    Emax=999999,
+)
 
 __all__ = [
     "BearingObservation",
@@ -206,8 +217,108 @@ def _optional_nonnegative(value: object, *, name: str) -> float | None:
     return _nonnegative_number(value, name=name)
 
 
-def _close(first: float, second: float) -> bool:
-    return isclose(first, second, rel_tol=1e-9, abs_tol=1e-12)
+def _calculation_close(first: float, second: float) -> bool:
+    if not isfinite(first) or not isfinite(second):
+        return False
+    tolerance = 8.0 * max(ulp(first), ulp(second))
+    return abs(first - second) <= tolerance
+
+
+def _covariance_determinant(
+    east_variance: float,
+    east_north: float,
+    north_variance: float,
+) -> Fraction:
+    return (
+        Fraction(east_variance) * Fraction(north_variance)
+        - Fraction(east_north) * Fraction(east_north)
+    )
+
+
+def _largest_valid_covariance(
+    east_variance: float,
+    north_variance: float,
+) -> float:
+    product = Fraction(east_variance) * Fraction(north_variance)
+    candidate = sqrt(east_variance) * sqrt(north_variance)
+    while Fraction(candidate) * Fraction(candidate) > product:
+        candidate = nextafter(candidate, 0.0)
+    while True:
+        larger = nextafter(candidate, float("inf"))
+        if (
+            not isfinite(larger)
+            or Fraction(larger) * Fraction(larger) > product
+        ):
+            return candidate
+        candidate = larger
+
+
+def _covariance_principal_standard_deviations(
+    east_variance: float,
+    east_north: float,
+    north_variance: float,
+) -> tuple[float, float, bool]:
+    """Return principal deviations and isotropy without float cancellation."""
+
+    if east_variance == 0.0 and north_variance == 0.0:
+        return (0.0, 0.0, True)
+
+    determinant = _covariance_determinant(
+        east_variance,
+        east_north,
+        north_variance,
+    )
+    with localcontext(_COVARIANCE_DECIMAL_CONTEXT):
+        east = Decimal.from_float(east_variance)
+        cross = Decimal.from_float(east_north)
+        north = Decimal.from_float(north_variance)
+        difference = east - north
+        discriminant = (
+            difference * difference + Decimal(4) * cross * cross
+        ).sqrt()
+        major_variance = (east + north + discriminant) / Decimal(2)
+        major_deviation = float(major_variance.sqrt())
+
+        if discriminant.is_zero():
+            minor_deviation = major_deviation
+        elif determinant > 0 and major_variance > 0:
+            determinant_decimal = (
+                Decimal(determinant.numerator)
+                / Decimal(determinant.denominator)
+            )
+            minor_variance = determinant_decimal / major_variance
+            minor_deviation = float(minor_variance.sqrt())
+            minor_deviation = min(minor_deviation, major_deviation)
+        else:
+            minor_deviation = 0.0
+
+        isotropic = discriminant <= max(
+            Decimal("1e-9") * major_variance,
+            Decimal("1e-12"),
+        )
+    return (major_deviation, minor_deviation, isotropic)
+
+
+def _covariance_axis_from_east(
+    east_variance: float,
+    east_north: float,
+    north_variance: float,
+) -> float:
+    scale = max(east_variance, abs(east_north), north_variance)
+    return 0.5 * atan2(
+        2.0 * (east_north / scale),
+        east_variance / scale - north_variance / scale,
+    )
+
+
+def _root_mean_square(values: Iterable[float]) -> float:
+    items = tuple(values)
+    scale = max((abs(value) for value in items), default=0.0)
+    if scale == 0.0:
+        return 0.0
+    return scale * sqrt(
+        sum((value / scale) ** 2 for value in items) / len(items)
+    )
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -224,7 +335,7 @@ class BearingObservation:
 
     def __init__(
         self,
-        reference: _PositionInput,
+        reference: PositionInput,
         bearing: Real | Decimal,
         uncertainty: Real | Decimal,
     ) -> None:
@@ -264,7 +375,7 @@ class RangeObservation:
 
     def __init__(
         self,
-        reference: _PositionInput,
+        reference: PositionInput,
         distance: Real | Decimal,
         uncertainty: Real | Decimal,
     ) -> None:
@@ -334,14 +445,14 @@ class ObservationResidual:
                 raise FixError("predicted range must be at least zero")
             expected_residual = predicted - self.observation.distance
 
-        if not _close(residual, expected_residual):
+        if not _calculation_close(residual, expected_residual):
             raise FixError(
                 "residual must equal predicted minus observed in its natural "
                 "unit"
             )
 
         expected_standardized = residual / self.observation.uncertainty
-        if not _close(standardized, expected_standardized):
+        if not _calculation_close(standardized, expected_standardized):
             raise FixError(
                 "standardized residual must equal residual divided by "
                 "observation uncertainty"
@@ -392,18 +503,28 @@ class FixUncertainty:
             second_row[1],
             name="north covariance variance",
         )
-        if not _close(east_north, north_east):
+        if not _calculation_close(east_north, north_east):
             raise FixError("covariance must be symmetric")
+        east_north += (north_east - east_north) / 2.0
+        north_east = east_north
         if east_variance < 0.0 or north_variance < 0.0:
             raise FixError("covariance variances must be non-negative")
-        determinant = east_variance * north_variance - east_north**2
-        determinant_scale = max(
-            1.0,
-            abs(east_variance * north_variance),
-            east_north**2,
-        )
-        if determinant < -1e-12 * determinant_scale:
-            raise FixError("covariance must be positive semidefinite")
+        if east_variance == 0.0 or north_variance == 0.0:
+            if east_north != 0.0:
+                raise FixError("covariance must be positive semidefinite")
+        elif _covariance_determinant(
+            east_variance,
+            east_north,
+            north_variance,
+        ) < 0:
+            covariance_limit = _largest_valid_covariance(
+                east_variance,
+                north_variance,
+            )
+            if not _calculation_close(abs(east_north), covariance_limit):
+                raise FixError("covariance must be positive semidefinite")
+            east_north = copysign(covariance_limit, east_north)
+            north_east = east_north
 
         east_standard_deviation = _nonnegative_number(
             self.east_standard_deviation,
@@ -416,24 +537,28 @@ class FixUncertainty:
         correlation = _finite_number(self.correlation, name="correlation")
         if not -1.0 <= correlation <= 1.0:
             raise FixError("correlation must be between -1 and 1")
-        if not _close(east_standard_deviation, sqrt(east_variance)):
+        expected_east_sd = sqrt(east_variance)
+        expected_north_sd = sqrt(north_variance)
+        if not _calculation_close(east_standard_deviation, expected_east_sd):
             raise FixError(
                 "east standard deviation must match covariance"
             )
-        if not _close(north_standard_deviation, sqrt(north_variance)):
+        if not _calculation_close(north_standard_deviation, expected_north_sd):
             raise FixError(
                 "north standard deviation must match covariance"
             )
-        correlation_denominator = (
-            east_standard_deviation * north_standard_deviation
-        )
+        east_standard_deviation = expected_east_sd
+        north_standard_deviation = expected_north_sd
+        correlation_denominator = expected_east_sd * expected_north_sd
         expected_correlation = (
             east_north / correlation_denominator
             if correlation_denominator > 0.0
             else 0.0
         )
-        if not _close(correlation, expected_correlation):
+        expected_correlation = max(-1.0, min(1.0, expected_correlation))
+        if not _calculation_close(correlation, expected_correlation):
             raise FixError("correlation must match covariance")
+        correlation = expected_correlation
 
         semi_major = _nonnegative_number(
             self.semi_major_95,
@@ -447,22 +572,23 @@ class FixUncertainty:
             raise FixError(
                 "95% semi-major axis must not be shorter than semi-minor axis"
             )
-        trace = east_variance + north_variance
-        discriminant = hypot(
-            east_variance - north_variance,
-            2.0 * east_north,
+        major_deviation, minor_deviation, isotropic = (
+            _covariance_principal_standard_deviations(
+                east_variance,
+                east_north,
+                north_variance,
+            )
         )
-        major_variance = max(0.0, (trace + discriminant) / 2.0)
-        minor_variance = max(0.0, (trace - discriminant) / 2.0)
-        expected_major = sqrt(major_variance) * _CHI_SQUARE_2D_95_SCALE
-        expected_minor = sqrt(minor_variance) * _CHI_SQUARE_2D_95_SCALE
-        if not _close(semi_major, expected_major) or not _close(
-            semi_minor,
-            expected_minor,
-        ):
+        expected_major = major_deviation * _CHI_SQUARE_2D_95_SCALE
+        expected_minor = minor_deviation * _CHI_SQUARE_2D_95_SCALE
+        if not _calculation_close(
+            semi_major,
+            expected_major,
+        ) or not _calculation_close(semi_minor, expected_minor):
             raise FixError("95% ellipse axes must match covariance")
+        semi_major = expected_major
+        semi_minor = expected_minor
 
-        isotropic = _close(major_variance, minor_variance)
         if isotropic:
             if self.major_axis_bearing is not None:
                 raise FixError(
@@ -479,9 +605,10 @@ class FixUncertainty:
                 period=180,
                 name="major axis bearing",
             )
-            axis_from_east = 0.5 * atan2(
-                2.0 * east_north,
-                east_variance - north_variance,
+            axis_from_east = _covariance_axis_from_east(
+                east_variance,
+                east_north,
+                north_variance,
             )
             expected_bearing = (90.0 - degrees(axis_from_east)) % 180.0
             bearing_difference = abs(major_axis_bearing - expected_bearing)
@@ -491,6 +618,7 @@ class FixUncertainty:
             )
             if bearing_difference > 1e-7:
                 raise FixError("major axis bearing must match covariance")
+            major_axis_bearing = expected_bearing
 
         covariance = (
             (east_variance, east_north),
@@ -556,6 +684,13 @@ class CandidateResult:
             raise FixError(
                 "ambiguous candidate results require at least two positions"
             )
+        if (
+            status is CandidateStatus.AMBIGUOUS
+            and len(set(positions)) != len(positions)
+        ):
+            raise FixError(
+                "ambiguous candidate results require distinct positions"
+            )
         if status in {
             CandidateStatus.NO_SOLUTION,
             CandidateStatus.DEGENERATE,
@@ -609,6 +744,14 @@ class FixResult:
             raise FixError("a non-successful result cannot select a position")
 
         residuals = _residual_tuple(self.residuals)
+        range_residual_seen = False
+        for residual in residuals:
+            if isinstance(residual.observation, RangeObservation):
+                range_residual_seen = True
+            elif range_residual_seen:
+                raise FixError(
+                    "bearing residuals must precede range residuals"
+                )
         warnings = _warning_tuple(self.warnings)
         competing_positions = _position_tuple(
             self.competing_positions,
@@ -618,6 +761,10 @@ class FixResult:
             if len(competing_positions) < 2:
                 raise FixError(
                     "an ambiguous result requires at least two competing positions"
+                )
+            if len(set(competing_positions)) != len(competing_positions):
+                raise FixError(
+                    "an ambiguous result requires distinct competing positions"
                 )
         elif competing_positions:
             raise FixError(
@@ -652,22 +799,25 @@ class FixResult:
             name="range RMS",
         )
         if objective is None:
+            if residuals:
+                raise FixError("residuals require an objective")
             if any(
                 value is not None for value in (rms, bearing_rms, range_rms)
             ):
                 raise FixError("RMS values require an objective")
         else:
-            if not residuals:
-                raise FixError("an objective requires residuals")
+            if len(residuals) < 2:
+                raise FixError("an objective requires at least two residuals")
             expected_objective = sum(
-                item.standardized_residual**2 for item in residuals
+                item.standardized_residual * item.standardized_residual
+                for item in residuals
             )
-            if not _close(objective, expected_objective):
+            if not _calculation_close(objective, expected_objective):
                 raise FixError(
                     "objective must equal the standardized residual sum of squares"
                 )
             expected_rms = sqrt(expected_objective / len(residuals))
-            if rms is None or not _close(rms, expected_rms):
+            if rms is None or not _calculation_close(rms, expected_rms):
                 raise FixError("RMS must match the objective and residual count")
 
             bearing_values = [
@@ -681,19 +831,15 @@ class FixResult:
                 if isinstance(item.observation, RangeObservation)
             ]
             expected_bearing_rms = (
-                sqrt(sum(value**2 for value in bearing_values) / len(bearing_values))
-                if bearing_values
-                else None
+                _root_mean_square(bearing_values) if bearing_values else None
             )
             expected_range_rms = (
-                sqrt(sum(value**2 for value in range_values) / len(range_values))
-                if range_values
-                else None
+                _root_mean_square(range_values) if range_values else None
             )
             if expected_bearing_rms is None:
                 if bearing_rms is not None:
                     raise FixError("bearing RMS requires bearing residuals")
-            elif bearing_rms is None or not _close(
+            elif bearing_rms is None or not _calculation_close(
                 bearing_rms,
                 expected_bearing_rms,
             ):
@@ -701,11 +847,21 @@ class FixResult:
             if expected_range_rms is None:
                 if range_rms is not None:
                     raise FixError("range RMS requires range residuals")
-            elif range_rms is None or not _close(
+            elif range_rms is None or not _calculation_close(
                 range_rms,
                 expected_range_rms,
             ):
                 raise FixError("range RMS must match range residuals")
+
+        if objective is None:
+            if self.iterations != 0 or self.function_evaluations != 0:
+                raise FixError(
+                    "results without an evaluated fit require zero solver counts"
+                )
+        elif self.iterations == 0 or self.function_evaluations == 0:
+            raise FixError(
+                "an evaluated fit requires positive solver counts"
+            )
 
         if self.rank is None:
             rank = None
@@ -723,9 +879,42 @@ class FixResult:
         )
         if condition_number is not None and condition_number < 1.0:
             raise FixError("condition number must be at least one")
-        if rank is not None and rank < 2 and condition_number is not None:
+        if rank == 2:
+            if condition_number is None:
+                raise FixError(
+                    "full-rank geometry requires a condition number"
+                )
+        elif condition_number is not None:
             raise FixError(
-                "condition number must be None for rank-deficient geometry"
+                "condition number is available only for full-rank geometry"
+            )
+        if objective is not None and rank is None:
+            raise FixError("an evaluated fit requires rank diagnostics")
+        if objective is None and rank == 2:
+            raise FixError("full-rank diagnostics require an evaluated fit")
+        if (
+            objective is None
+            and rank is not None
+            and status is not FixStatus.DEGENERATE
+        ):
+            raise FixError(
+                "only a degenerate no-fit result can carry a partial rank"
+            )
+        if status is FixStatus.AMBIGUOUS and (
+            objective is not None or rank is not None
+        ):
+            raise FixError(
+                "an ambiguous result cannot select fit or geometry diagnostics"
+            )
+        if (
+            status is FixStatus.DEGENERATE
+            and rank == 2
+            and condition_number is not None
+            and condition_number <= _DEGENERATE_CONDITION
+        ):
+            raise FixError(
+                "full-rank degenerate geometry requires an excessive "
+                "condition number"
             )
 
         if self.degrees_of_freedom is None:
@@ -740,34 +929,36 @@ class FixResult:
             )
         else:
             degrees_of_freedom = self.degrees_of_freedom
-        if residuals and degrees_of_freedom is not None:
+        if residuals:
             expected_degrees = len(residuals) - 2
-            if expected_degrees < 0 or degrees_of_freedom != expected_degrees:
+            if degrees_of_freedom != expected_degrees:
                 raise FixError(
                     "degrees of freedom must equal residual count minus two"
                 )
+        elif degrees_of_freedom is not None:
+            raise FixError("degrees of freedom require residuals")
         reduced_chi_square = _optional_nonnegative(
             self.reduced_chi_square,
             name="reduced chi-square",
         )
-        if reduced_chi_square is not None:
-            if (
-                objective is None
-                or degrees_of_freedom is None
-                or degrees_of_freedom == 0
-            ):
+        if degrees_of_freedom is None or degrees_of_freedom == 0:
+            if reduced_chi_square is not None:
                 raise FixError(
                     "reduced chi-square requires an objective and positive "
                     "degrees of freedom"
                 )
-            if not _close(
-                reduced_chi_square,
-                objective / degrees_of_freedom,
-            ):
-                raise FixError(
-                    "reduced chi-square must equal objective divided by "
-                    "degrees of freedom"
-                )
+        elif reduced_chi_square is None:
+            raise FixError(
+                "positive degrees of freedom require reduced chi-square"
+            )
+        elif objective is None or not _calculation_close(
+            reduced_chi_square,
+            objective / degrees_of_freedom,
+        ):
+            raise FixError(
+                "reduced chi-square must equal objective divided by "
+                "degrees of freedom"
+            )
 
         if self.uncertainty is not None and not isinstance(
             self.uncertainty,
@@ -784,6 +975,10 @@ class FixResult:
             if rank != 2 or condition_number is None:
                 raise FixError(
                     "a converged result requires full-rank geometry diagnostics"
+                )
+            if condition_number > _DEGENERATE_CONDITION:
+                raise FixError(
+                    "a converged result cannot have degenerate geometry"
                 )
             expected_degrees = len(residuals) - 2
             if degrees_of_freedom != expected_degrees:
@@ -840,7 +1035,7 @@ def two_bearing_candidates(
     first: BearingObservation,
     second: BearingObservation,
     *,
-    search_center: _PositionInput | None = None,
+    search_center: PositionInput | None = None,
     search_radius: float = 500_000.0,
 ) -> CandidateResult:
     """Return all two-bearing candidates in the bounded WGS84 search disk."""
@@ -879,8 +1074,8 @@ def solve_fix(
     *,
     bearings: Iterable[BearingObservation] = (),
     ranges: Iterable[RangeObservation] = (),
-    initial: _PositionInput | None = None,
-    search_center: _PositionInput | None = None,
+    initial: PositionInput | None = None,
+    search_center: PositionInput | None = None,
     search_radius: float = 500_000.0,
     max_iterations: int = 200,
 ) -> FixResult:

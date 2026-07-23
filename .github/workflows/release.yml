@@ -189,6 +189,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           PRERELEASE: ${{ needs.validate.outputs.prerelease }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |

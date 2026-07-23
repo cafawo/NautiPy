@@ -17,7 +17,15 @@ Automation performs a release; it does not decide that a release is ready.
 
 The first supported public package is `0.1.0`.
 
-The older repository experiment was not a supported distribution and does not require version continuity, compatibility wrappers, or migration notes. From `0.1.0` until `1.0.0`, breaking API improvements are allowed when clearly documented. At and after `1.0.0`, documented APIs follow semantic versioning.
+The older repository experiment was not a supported distribution and does not
+require version continuity, compatibility wrappers, or migration notes. From
+`0.1.0` until `1.0.0`, clearly documented breaking API improvements belong in
+minor releases; patch releases should remain compatible. At and after `1.0.0`,
+documented APIs follow semantic versioning.
+
+The compatibility and supported-Python rules are defined in
+[SUPPORT.md](SUPPORT.md). The Python range itself remains authoritative only
+in `pyproject.toml`.
 
 ## Publish every intentional release tag
 
@@ -155,8 +163,23 @@ Before `v0.1.0`:
 3. Match the exact GitHub owner, repository, workflow filename, and environment.
 4. Create the protected GitHub `pypi` environment.
 5. Restrict deployment to release tags and optionally require maintainer approval.
-6. Protect the default branch and require CI before merge.
+6. Protect the default branch and require the always-running `CI success`
+   aggregate check before merge. Do not require only a dependent job that can
+   be skipped when an upstream check fails.
 7. Verify package links, license metadata, wheel contents, and sdist contents before tagging.
+
+The pending PyPI trusted-publisher identity must use these exact values:
+
+```text
+PyPI project: nautipy
+GitHub owner: cafawo
+GitHub repository: NautiPy
+Workflow filename: release.yml
+Environment: pypi
+```
+
+The identity contains no token or secret. PyPI and GitHub still require the
+maintainer to create and protect their respective project/environment state.
 
 TestPyPI is optional and should be used only when it validates something the production artifact tests do not.
 

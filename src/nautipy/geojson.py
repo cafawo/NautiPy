@@ -8,6 +8,7 @@ from typing import TypeAlias
 
 from .coordinates import (
     CoordinateOrder,
+    PositionInput,
     _validate_input_format,
     _validate_parse_order,
     parse_position,
@@ -20,9 +21,6 @@ from .errors import (
 )
 from .position import Position
 
-_PositionInput: TypeAlias = (
-    Position | str | Mapping[object, object] | Sequence[object]
-)
 _GeoJSONMapping: TypeAlias = dict[str, object]
 _TEXT_TYPES = (str, bytes, bytearray)
 
@@ -91,7 +89,7 @@ def _point_mapping(position: Position) -> _GeoJSONMapping:
 
 
 def to_geojson_point(
-    value: _PositionInput,
+    value: PositionInput,
     *,
     order: CoordinateOrder = "latlon",
     format: str | None = None,
@@ -224,7 +222,7 @@ def from_geojson_feature_collection(
 
 
 def to_geojson_feature_collection(
-    values: Iterable[_PositionInput],
+    values: Iterable[PositionInput],
     *,
     order: CoordinateOrder = "latlon",
     format: str | None = None,

@@ -4,6 +4,11 @@ This roadmap builds the smallest useful package first, then adds capability with
 
 Checkboxes describe repository state. Mark an item complete only when its acceptance criteria pass on the default branch.
 
+Checkboxes for an earlier milestone record that its checkpoint passed on the
+default branch. A later milestone may intentionally supersede a temporary
+checkpoint constraint, such as Milestone 0's empty dependency list before
+Milestone 2 adds GeographicLib; that does not undo the earlier acceptance.
+
 ## Starting decision
 
 The existing repository is an experiment, not a supported package. The rewrite is clean-slate:

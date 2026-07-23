@@ -432,6 +432,8 @@ class PublicApiTests(unittest.TestCase):
             nautipy.__all__,
             [
                 "Position",
+                "PositionInput",
+                "CandidateDiagnostic",
                 "ParseResult",
                 "parse_position",
                 "inspect_position",
@@ -457,6 +459,104 @@ class PublicApiTests(unittest.TestCase):
         for legacy_name in ("Pos", "haversine", "triangulate", "multilaterate"):
             with self.subTest(name=legacy_name):
                 self.assertFalse(hasattr(nautipy, legacy_name))
+
+        for implementation_name in ("import_module", "TYPE_CHECKING"):
+            with self.subTest(name=implementation_name):
+                self.assertFalse(hasattr(nautipy, implementation_name))
+
+    def test_public_modules_define_explicit_star_import_surfaces(self) -> None:
+        import nautipy.coordinates as coordinates
+        import nautipy.errors as errors
+        import nautipy.fix as fix
+        import nautipy.geodesic as geodesic
+        import nautipy.geojson as geojson
+        import nautipy.position as position
+
+        self.assertEqual(
+            coordinates.__all__,
+            [
+                "CandidateDiagnostic",
+                "CandidateOutcome",
+                "CoordinateFormat",
+                "CoordinateOrder",
+                "DetectedFormat",
+                "OutputOrder",
+                "ParseResult",
+                "PositionInput",
+                "convert_position",
+                "format_position",
+                "inspect_position",
+                "parse_position",
+            ],
+        )
+        self.assertEqual(
+            geodesic.__all__,
+            [
+                "InverseResult",
+                "destination",
+                "distance",
+                "initial_bearing",
+                "interpolate",
+                "inverse",
+                "nearest_position",
+            ],
+        )
+        self.assertEqual(position.__all__, ["Position"])
+        self.assertEqual(
+            geojson.__all__,
+            [
+                "to_geojson_point",
+                "from_geojson_point",
+                "to_geojson_feature_collection",
+                "from_geojson_feature_collection",
+            ],
+        )
+        self.assertEqual(
+            fix.__all__,
+            [
+                "BearingObservation",
+                "RangeObservation",
+                "ObservationResidual",
+                "FixUncertainty",
+                "FixStatus",
+                "CandidateStatus",
+                "CandidateResult",
+                "FixResult",
+                "FixError",
+                "FixDependencyError",
+                "two_bearing_candidates",
+                "two_range_candidates",
+                "solve_fix",
+            ],
+        )
+        self.assertEqual(
+            errors.__all__,
+            [
+                "AmbiguousCoordinateError",
+                "CoordinateError",
+                "CoordinateParseError",
+                "CoordinateRangeError",
+                "FixDependencyError",
+                "FixError",
+                "NautiPyError",
+                "NavigationError",
+            ],
+        )
+
+        for module in (
+            nautipy,
+            coordinates,
+            errors,
+            fix,
+            geodesic,
+            geojson,
+            position,
+        ):
+            with self.subTest(module=module.__name__):
+                self.assertEqual(len(module.__all__), len(set(module.__all__)))
+                for name in module.__all__:
+                    self.assertFalse(name.startswith("_"), name)
+                    self.assertTrue(hasattr(module, name), name)
 
 
 if __name__ == "__main__":

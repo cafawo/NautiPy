@@ -17,6 +17,9 @@ All notable changes to NautiPy will be documented in this file.
 - Added exact range validation before conversion to the internal float model.
 - Added immutable `ParseResult` inspection metadata with normalized tokens,
   source-order evidence, lexical angular resolution, and candidate diagnostics.
+- Added public `PositionInput` and `CandidateDiagnostic` types, explicit module
+  export lists, and `Typing :: Typed` package metadata.
+- Added an explicit API stability and supported-Python policy.
 - Added canonical DD, DDM, DMS, ISO 6709, and NMEA formatting with explicit
   precision, notation, symbols, output order, and supported separator options.
 - Added resolution-aware `convert_position`, carry-safe round-half-even
@@ -26,6 +29,7 @@ All notable changes to NautiPy will be documented in this file.
   lookup backed by GeographicLib.
 - Added independently generated reference cases for short, antimeridian,
   high-latitude, and near-antipodal geodesics.
+- Documented the numerical tolerances used for the navigation reference corpus.
 - Added keyword-only position identifiers and descriptions that do not affect
   coordinate equality or hashing.
 - Added strict two-dimensional GeoJSON Point and FeatureCollection interchange
@@ -37,6 +41,8 @@ All notable changes to NautiPy will be documented in this file.
 - Added optional bearing, range, and mixed-observation WGS84 position fixes
   with explicit candidate ambiguity, weighted residuals, convergence and
   geometry diagnostics, and conditional local uncertainty.
+- Added frozen external PROJ reference networks for mid-latitude and
+  high-latitude antimeridian fix validation.
 - Added dependency-free observation/result models and a clear missing-extra
   error for `python -m pip install "nautipy[fix]"`.
 - Added standard-library tests, distribution build checks, clean-wheel smoke
@@ -50,6 +56,14 @@ All notable changes to NautiPy will be documented in this file.
   preserving lazy, standard-library-only coordinate use.
 - Added NumPy and SciPy only to the isolated `fix` optional extra; normal
   coordinate and navigation installations remain free of the scientific stack.
+
+### Fixed
+
+- Preserved valid noisy fixes on the circular search boundary without
+  projecting out-of-domain optima into the declared search region.
+- Hardened residual, result, covariance, and confidence-ellipse validation
+  against scale-amplified inconsistencies, overflow, and eigenvalue
+  cancellation.
 
 ### Removed
 

@@ -1,10 +1,12 @@
 """Small public API for NautiPy coordinates and WGS84 navigation."""
 
-from importlib import import_module
-from typing import TYPE_CHECKING
+import importlib as _importlib
+import typing as _typing
 
 from .coordinates import (
+    CandidateDiagnostic,
     ParseResult,
+    PositionInput,
     convert_position,
     format_position,
     inspect_position,
@@ -22,7 +24,7 @@ from .errors import (
 )
 from .position import Position
 
-if TYPE_CHECKING:
+if _typing.TYPE_CHECKING:
     from .geodesic import (
         InverseResult,
         destination,
@@ -48,6 +50,8 @@ _NAVIGATION_EXPORTS = frozenset(
 
 __all__ = [
     "Position",
+    "PositionInput",
+    "CandidateDiagnostic",
     "ParseResult",
     "parse_position",
     "inspect_position",
@@ -73,7 +77,7 @@ __all__ = [
 
 def __getattr__(name: str) -> object:
     if name in _NAVIGATION_EXPORTS:
-        module = import_module(".geodesic", __name__)
+        module = _importlib.import_module(".geodesic", __name__)
         value = getattr(module, name)
         globals()[name] = value
         return value

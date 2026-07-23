@@ -176,6 +176,88 @@ class FixSolverTests(unittest.TestCase):
         self.assertTrue(range_result.success, range_result)
         self.assertNear(range_result.position, target, 2.0)
 
+    def test_frozen_proj_reference_networks(self) -> None:
+        # Frozen outside NautiPy with pyproj 3.7.2 / PROJ 9.7.1 Geod(WGS84).
+        fixtures = (
+            (
+                Position(50.127198, 8.665562),
+                (
+                    (
+                        Position(50.116135, 8.670277),
+                        164.67435160489512,
+                        1275.9149770286533,
+                    ),
+                    (
+                        Position(50.112836, 8.666753),
+                        176.94749685659198,
+                        1599.7741748862206,
+                    ),
+                    (
+                        Position(50.110347, 8.659873),
+                        192.2494990200905,
+                        1918.0114545365705,
+                    ),
+                ),
+            ),
+            (
+                Position(71.25, 179.75),
+                (
+                    (
+                        Position(71.5, 179.0),
+                        316.56055637344936,
+                        38644.03099791827,
+                    ),
+                    (
+                        Position(70.9, -179.6),
+                        148.61259583902992,
+                        45596.19443911106,
+                    ),
+                    (
+                        Position(71.1, 178.8),
+                        244.39232631769255,
+                        38099.46020710227,
+                    ),
+                ),
+            ),
+        )
+
+        for target, rows in fixtures:
+            with self.subTest(target=target):
+                result = solve_fix(
+                    bearings=tuple(
+                        BearingObservation(reference, bearing, 0.01)
+                        for reference, bearing, _ in rows
+                    ),
+                    ranges=tuple(
+                        RangeObservation(reference, measured_range, 1.0)
+                        for reference, _, measured_range in rows
+                    ),
+                    search_radius=100_000,
+                )
+
+                self.assertTrue(result.success, result)
+                self.assertIs(result.status, FixStatus.CONVERGED)
+                self.assertNear(result.position, target, 0.01)
+
+    def test_symmetric_range_network_has_isotropic_uncertainty(self) -> None:
+        target = Position(0, 10)
+        stations = tuple(
+            destination(target, bearing=bearing, distance=10_000)
+            for bearing in (0, 90, 180, 270)
+        )
+
+        result = solve_fix(
+            ranges=self.ranges(target, stations),
+            search_center=target,
+            search_radius=20_000,
+        )
+
+        self.assertTrue(result.success, result)
+        self.assertNear(result.position, target, 0.001)
+        self.assertIsNotNone(result.uncertainty)
+        assert result.uncertainty is not None
+        self.assertIsNone(result.uncertainty.major_axis_bearing)
+
     def test_reciprocal_bearings_are_not_silently_accepted(self) -> None:
         target = Position(50.127198, 8.665562)
         first = Position(50.116135, 8.670277)
@@ -284,8 +366,20 @@ class FixSolverTests(unittest.TestCase):
             BearingObservation(same, 13, 0.1),
             search_radius=10_000,
         )
+        nearly_equivalent = two_bearing_candidates(
+            BearingObservation(same, 12, 0.1),
+            BearingObservation(same, 12 + 5e-11, 0.1),
+            search_radius=10_000,
+        )
+        just_distinct = two_bearing_candidates(
+            BearingObservation(same, 12, 0.1),
+            BearingObservation(same, 12 + 2e-10, 0.1),
+            search_radius=10_000,
+        )
         self.assertIs(equivalent.status, CandidateStatus.DEGENERATE)
         self.assertIs(inconsistent.status, CandidateStatus.NO_SOLUTION)
+        self.assertIs(nearly_equivalent.status, CandidateStatus.DEGENERATE)
+        self.assertIs(just_distinct.status, CandidateStatus.NO_SOLUTION)
 
     def test_exact_effectively_parallel_bearings_are_degenerate(self) -> None:
         target = Position(0, 0)
@@ -643,6 +737,44 @@ class FixSolverTests(unittest.TestCase):
                 self.assertNear(result.position, target, 0.001)
                 self.assertIn("near the edge", " ".join(result.warnings))
 
+    def test_noisy_optima_on_or_just_inside_cardinal_edge_converge(self) -> None:
+        center = Position(0, 0)
+        radius = 1_000_000.0
+        for inset in (0.005, 0.0):
+            with self.subTest(inset=inset):
+                target = destination(
+                    center,
+                    bearing=90,
+                    distance=radius - inset,
+                )
+                references = tuple(
+                    destination(target, bearing=bearing, distance=10_000)
+                    for bearing in (0, 120, 240)
+                )
+                observations = tuple(
+                    RangeObservation(
+                        reference,
+                        distance(target, reference) + 0.1,
+                        1.0,
+                    )
+                    for reference in references
+                )
+
+                result = solve_fix(
+                    ranges=observations,
+                    initial=target,
+                    search_center=center,
+                    search_radius=radius,
+                )
+
+                self.assertIs(result.status, FixStatus.CONVERGED)
+                self.assertTrue(result.success, result)
+                self.assertNear(result.position, target, 0.01)
+                self.assertLessEqual(
+                    distance(center, result.position),
+                    radius + 0.001,
+                )
+
     def test_out_of_disk_optima_are_not_projected_to_the_boundary(self) -> None:
         center = Position(0, 0)
         for heading in (0, 45):
@@ -666,6 +798,30 @@ class FixSolverTests(unittest.TestCase):
                 self.assertIsNone(result.position)
                 self.assertTrue(result.residuals)
                 self.assertIn("not projected", " ".join(result.warnings))
+
+    def test_optimum_in_padded_box_but_outside_disk_is_rejected(self) -> None:
+        center = Position(0, 0)
+        radius = 10_000.0
+        target = destination(
+            center,
+            bearing=90,
+            distance=radius + 0.1,
+        )
+        references = tuple(
+            destination(target, bearing=bearing, distance=1_500)
+            for bearing in (20, 140, 260)
+        )
+
+        result = solve_fix(
+            ranges=self.ranges(target, references),
+            search_center=center,
+            search_radius=radius,
+        )
+
+        self.assertIs(result.status, FixStatus.NO_SOLUTION)
+        self.assertFalse(result.success)
+        self.assertIsNone(result.position)
+        self.assertIn("not projected", " ".join(result.warnings))
 
     def test_explicit_initial_seed_is_always_run_before_generated_seeds(self) -> None:
         from nautipy import _fix_solver

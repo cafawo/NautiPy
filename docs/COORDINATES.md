@@ -52,6 +52,26 @@ The package retains both:
 1. a low-friction function returning `Position`; and
 2. an inspection path returning detection metadata, normalized tokens, warnings, and rejected alternatives.
 
+`PositionInput` is the public typing alias for accepted position-like values.
+`CandidateDiagnostic` is the immutable public record used for each entry in
+`ParseResult.candidates`.
+
+Each `CandidateDiagnostic` contains the candidate `format`, detected
+`source_order`, parsed `position` when one exists, selection `outcome`,
+supporting `evidence`, and a rejection or competition `reason` when relevant.
+The collections are immutable tuples, and rejected candidates may have no
+position.
+
+The `nautipy.coordinates` module also exports the typing aliases used by these
+signatures and records:
+
+- `CoordinateOrder`: `"latlon"`, `"lonlat"`, or evidence-only `"auto"`;
+- `OutputOrder`: `"latlon"` or `"lonlat"`;
+- `CoordinateFormat`: `"dd"`, `"ddm"`, `"dms"`, `"iso6709"`, or `"nmea"`;
+- `DetectedFormat`: a `CoordinateFormat` or `"mixed"`; and
+- `CandidateOutcome`: `"selected"`, `"equivalent"`, `"rejected"`, or
+  `"competing"`.
+
 Passing `format=` means "interpret this input as this format" and bypasses automatic format selection after common normalization. It must still validate the data.
 
 `ParseResult` contains the normalized `position`, canonical detected `format`,

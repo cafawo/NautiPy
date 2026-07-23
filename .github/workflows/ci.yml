@@ -19,8 +19,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.14"]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -36,8 +36,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -50,8 +50,8 @@ jobs:
     name: Test fix extra minimum dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.10"
           cache: pip
@@ -59,7 +59,7 @@ jobs:
       - name: Install exact minimum dependencies
         run: >-
           python -m pip install
-          "geographiclib>=2.1"
+          "geographiclib==2.1"
           "numpy==1.23.5"
           "scipy==1.14.1"
       - name: Install NautiPy without re-resolving dependencies
@@ -75,8 +75,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.14"
           cache: pip
@@ -91,8 +91,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.14"
           cache: pip
@@ -121,8 +121,8 @@ jobs:
       - cross-platform-fix-smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.14"
           cache: pip
@@ -134,8 +134,43 @@ jobs:
       - run: python scripts/smoke_test_artifact.py dist/*.tar.gz
       - run: python scripts/smoke_test_artifact.py --fix dist/*.whl
       - run: python scripts/smoke_test_artifact.py --fix dist/*.tar.gz
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: distributions
           path: dist/*
           if-no-files-found: error
+
+  ci-success:
+    name: CI success
+    if: ${{ always() }}
+    needs:
+      - test
+      - fix-test
+      - fix-minimum-dependencies
+      - cross-platform-smoke
+      - cross-platform-fix-smoke
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI job to succeed
+        shell: bash
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          FIX_RESULT: ${{ needs.fix-test.result }}
+          MINIMUM_RESULT: ${{ needs.fix-minimum-dependencies.result }}
+          PLATFORM_RESULT: ${{ needs.cross-platform-smoke.result }}
+          PLATFORM_FIX_RESULT: ${{ needs.cross-platform-fix-smoke.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          for result in \
+            "$TEST_RESULT" \
+            "$FIX_RESULT" \
+            "$MINIMUM_RESULT" \
+            "$PLATFORM_RESULT" \
+            "$PLATFORM_FIX_RESULT" \
+            "$BUILD_RESULT"
+          do
+            if [[ "$result" != "success" ]]; then
+              exit 1
+            fi
+          done

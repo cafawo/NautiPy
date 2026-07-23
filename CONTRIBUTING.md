@@ -122,6 +122,9 @@ Tests must not depend on network services, changing online datasets, wall-clock 
 - Before 1.0, prefer a clean correction over a deprecation layer for unreleased behavior.
 - At and after 1.0, follow semantic versioning for documented APIs.
 
+See [docs/SUPPORT.md](docs/SUPPORT.md) for the public-surface, compatibility,
+and supported-Python policy.
+
 Internal names beginning with an underscore are not public unless documentation states otherwise.
 
 ## Dependency policy

@@ -1,5 +1,16 @@
 """Public exception hierarchy for NautiPy."""
 
+__all__ = [
+    "AmbiguousCoordinateError",
+    "CoordinateError",
+    "CoordinateParseError",
+    "CoordinateRangeError",
+    "FixDependencyError",
+    "FixError",
+    "NautiPyError",
+    "NavigationError",
+]
+
 
 class NautiPyError(Exception):
     """Base class for package-specific errors."""

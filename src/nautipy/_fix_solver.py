@@ -14,7 +14,6 @@ from math import (
     cos,
     degrees,
     hypot,
-    isclose,
     isfinite,
     log,
     radians,
@@ -27,6 +26,7 @@ from typing import Iterable, Sequence
 
 from .coordinates import parse_position
 from .errors import FixError
+from .fix import _DEGENERATE_CONDITION
 from .geodesic import _wgs84
 from .position import Position
 
@@ -40,8 +40,15 @@ _MAX_STARTS = 32
 _COMPETING_DELTA_CHI_SQUARE = 5.99146454710798
 _CONFIDENCE_SCALE_95 = sqrt(-2.0 * log(0.05))
 _WEAK_CONDITION = 1_000.0
-_DEGENERATE_CONDITION = 1_000_000.0
 _COINCIDENT_METRES = 1e-7
+_EQUIVALENT_BEARING_DEGREES = 1e-10
+_DEGENERATE_CROSSING_SINE = 1e-6
+_WEAK_CROSSING_SINE = 1e-3
+_EXACT_BEARING_RESIDUAL_DEGREES = 1e-5
+_EXACT_RANGE_RESIDUAL_METRES = 1e-3
+_LARGE_STANDARDIZED_RMS = 2.0
+_DOMAIN_EDGE_FRACTION = 0.9
+_LARGE_UNCERTAINTY_FRACTION = 0.25
 _RANGE_CIRCLE_SAMPLES = 1_440
 
 
@@ -339,10 +346,7 @@ def _optimize(
         objective = sum(value * value for value in standardized)
         if not isfinite(objective):
             return None
-        boundary_tolerance = max(1e-3, bound * 1e-8)
-        at_boundary = any(
-            abs(value) >= bound - boundary_tolerance for value in coordinates
-        )
+        at_boundary = any(int(value) != 0 for value in result.active_mask)
         return _Run(
             position=position,
             converged=bool(result.success),
@@ -423,7 +427,7 @@ def _bearing_pair_seed(
     second_origin, second_direction = _line_for_bearing(second, chart, step)
     determinant = _cross(first_direction, second_direction)
     sine_crossing = abs(determinant)
-    if sine_crossing < 1e-6:
+    if sine_crossing < _DEGENERATE_CROSSING_SINE:
         return None, "degenerate", sine_crossing
     separation = (
         second_origin[0] - first_origin[0],
@@ -683,7 +687,10 @@ def two_bearing_candidates(
     if abs(center.latitude) == 90.0:
         raise FixError("an exact pole cannot be used as the local search center")
     if _distance(first.reference, second.reference) <= _COINCIDENT_METRES:
-        if abs(_wrap_bearing(first.bearing - second.bearing)) <= 1e-10:
+        if (
+            abs(_wrap_bearing(first.bearing - second.bearing))
+            <= _EQUIVALENT_BEARING_DEGREES
+        ):
             return _candidate_result(
                 CandidateStatus.DEGENERATE,
                 (),
@@ -729,7 +736,8 @@ def two_bearing_candidates(
             and run.converged
             and _distance(center, run.position)
             <= radius + _domain_tolerance(radius)
-            and max(abs(value) for value in run.natural) <= 1e-5
+            and max(abs(value) for value in run.natural)
+            <= _EXACT_BEARING_RESIDUAL_DEGREES
         ):
             runs.append(run)
     candidates = _cluster_runs(runs)
@@ -773,7 +781,7 @@ def two_bearing_candidates(
         )
     run = stable[0]
     warnings: list[str] = []
-    if crossing < 1e-3 or run.condition > _WEAK_CONDITION:
+    if crossing < _WEAK_CROSSING_SINE or run.condition > _WEAK_CONDITION:
         warnings.append("bearing loci intersect at a weak angle")
     return _candidate_result(
         CandidateStatus.UNIQUE,
@@ -849,7 +857,8 @@ def two_range_candidates(
             run is not None
             and run.converged
             and not run.at_boundary
-            and max(abs(value) for value in run.natural) <= 1e-3
+            and max(abs(value) for value in run.natural)
+            <= _EXACT_RANGE_RESIDUAL_METRES
         ):
             refined.append(run.position)
     positions = _cluster_positions(refined)
@@ -1013,13 +1022,6 @@ def _score_seed(specs: Sequence[_Spec], chart: _Chart, seed: tuple[float, float]
         return float("inf")
 
 
-def _is_numerically_exact(specs: Sequence[_Spec], run: _Run) -> bool:
-    return all(
-        abs(residual) <= (1e-5 if spec.kind == "bearing" else 1e-3)
-        for spec, residual in zip(specs, run.natural)
-    )
-
-
 def _cluster_runs(runs: Iterable[_Run]) -> list[_Run]:
     clustered: list[_Run] = []
     for run in sorted(runs, key=lambda item: item.objective):
@@ -1061,6 +1063,8 @@ def _metrics(
     specs: Sequence[_Spec],
     run: _Run,
 ) -> tuple[float, float, float | None, float | None, int, float | None]:
+    from .fix import _root_mean_square
+
     objective = float(run.objective)
     rms = sqrt(objective / len(specs))
     bearing_values = [
@@ -1070,12 +1074,12 @@ def _metrics(
         residual for spec, residual in zip(specs, run.natural) if spec.kind == "range"
     ]
     bearing_rms = (
-        sqrt(sum(value * value for value in bearing_values) / len(bearing_values))
+        _root_mean_square(bearing_values)
         if bearing_values
         else None
     )
     range_rms = (
-        sqrt(sum(value * value for value in range_values) / len(range_values))
+        _root_mean_square(range_values)
         if range_values
         else None
     )
@@ -1097,7 +1101,11 @@ def _centered_diagnostics(
 
 
 def _uncertainty(jacobian: object, numpy: object) -> object | None:
-    from .fix import FixUncertainty
+    from .fix import (
+        FixUncertainty,
+        _covariance_axis_from_east,
+        _covariance_principal_standard_deviations,
+    )
 
     try:
         information = jacobian.T @ jacobian  # type: ignore[operator]
@@ -1112,16 +1120,20 @@ def _uncertainty(jacobian: object, numpy: object) -> object | None:
         denominator = east_sd * north_sd
         correlation = east_north / denominator if denominator > 0.0 else 0.0
         correlation = max(-1.0, min(1.0, correlation))
-        trace = east_variance + north_variance
-        discriminant = hypot(east_variance - north_variance, 2.0 * east_north)
-        major_variance = max(0.0, (trace + discriminant) / 2.0)
-        minor_variance = max(0.0, (trace - discriminant) / 2.0)
-        if isclose(major_variance, minor_variance, rel_tol=1e-9, abs_tol=1e-12):
+        major_deviation, minor_deviation, isotropic = (
+            _covariance_principal_standard_deviations(
+                east_variance,
+                east_north,
+                north_variance,
+            )
+        )
+        if isotropic:
             bearing = None
         else:
-            axis_from_east = 0.5 * atan2(
-                2.0 * east_north,
-                east_variance - north_variance,
+            axis_from_east = _covariance_axis_from_east(
+                east_variance,
+                east_north,
+                north_variance,
             )
             bearing = (90.0 - degrees(axis_from_east)) % 180.0
         return FixUncertainty(
@@ -1132,8 +1144,8 @@ def _uncertainty(jacobian: object, numpy: object) -> object | None:
             east_standard_deviation=east_sd,
             north_standard_deviation=north_sd,
             correlation=correlation,
-            semi_major_95=sqrt(major_variance) * _CONFIDENCE_SCALE_95,
-            semi_minor_95=sqrt(minor_variance) * _CONFIDENCE_SCALE_95,
+            semi_major_95=major_deviation * _CONFIDENCE_SCALE_95,
+            semi_minor_95=minor_deviation * _CONFIDENCE_SCALE_95,
             major_axis_bearing=bearing,
         )
     except (ArithmeticError, FixError, ValueError):
@@ -1339,6 +1351,9 @@ def solve_fix(
     generated_seeds.sort(key=lambda point: _score_seed(specs, chart, point))
     remaining = max(0, _MAX_STARTS - len(priority_seeds))
     seeds = priority_seeds + generated_seeds[:remaining]
+    # The square is only a numerical enclosure for the declared WGS84 disk.
+    # Pad it so a valid cardinal-edge optimum is not also an optimizer bound.
+    optimizer_bound = radius + max(1.0, 10.0 * _domain_tolerance(radius))
 
     completed: list[_Run] = []
     singular: list[_Run] = []
@@ -1349,7 +1364,7 @@ def solve_fix(
             specs,
             chart,
             seed,
-            bound=radius,
+            bound=optimizer_bound,
             max_iterations=iteration_limit,
             numpy=numpy,
             least_squares=least_squares,
@@ -1362,7 +1377,7 @@ def solve_fix(
         )
         if not run.converged:
             incomplete.append(run)
-        elif not inside or (run.at_boundary and not _is_numerically_exact(specs, run)):
+        elif not inside:
             domain_excluded.append(run)
         elif (
             run.rank < 2
@@ -1453,14 +1468,17 @@ def solve_fix(
     warnings: list[str] = []
     if condition > _WEAK_CONDITION:
         warnings.append("fix geometry is weak and strongly anisotropic")
-    if rms > 2.0:
+    if rms > _LARGE_STANDARDIZED_RMS:
         warnings.append("residuals are large relative to stated uncertainties")
-    if _distance(center, best.position) > radius * 0.9:
+    if _distance(center, best.position) > radius * _DOMAIN_EDGE_FRACTION:
         warnings.append("fix lies near the edge of the circular search region")
     uncertainty = _uncertainty(centered_jacobian, numpy)
     if uncertainty is None:
         warnings.append("linearized covariance could not be computed")
-    elif uncertainty.semi_major_95 > radius * 0.25:
+    elif (
+        uncertainty.semi_major_95
+        > radius * _LARGE_UNCERTAINTY_FRACTION
+    ):
         warnings.append("uncertainty is large relative to the search region")
 
     return FixResult(

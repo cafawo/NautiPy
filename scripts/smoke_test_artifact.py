@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,6 +32,21 @@ def main() -> None:
     is_sdist = artifact.name.endswith(".tar.gz")
     if not artifact.is_file() or not (is_wheel or is_sdist):
         raise SystemExit(f"unsupported distribution artifact: {artifact}")
+    if is_wheel:
+        name_parts = artifact.name.split("-")
+        if len(name_parts) < 5 or name_parts[0].lower() != "nautipy":
+            raise SystemExit(f"unexpected wheel filename: {artifact.name}")
+        expected_version = name_parts[1]
+    else:
+        prefix = "nautipy-"
+        suffix = ".tar.gz"
+        if not artifact.name.startswith(prefix):
+            raise SystemExit(f"unexpected source filename: {artifact.name}")
+        expected_version = artifact.name[len(prefix) : -len(suffix)]
+
+    process_environment = os.environ.copy()
+    process_environment.pop("PYTHONHOME", None)
+    process_environment.pop("PYTHONPATH", None)
 
     with TemporaryDirectory(prefix="nautipy-artifact-") as directory:
         environment = Path(directory)
@@ -41,26 +57,35 @@ def main() -> None:
         install_command = [str(executable), "-m", "pip", "install"]
         install_target = f"{artifact}[fix]" if args.fix else str(artifact)
         install_command.append(install_target)
-        subprocess.run(install_command, check=True)
+        subprocess.run(install_command, check=True, env=process_environment)
         subprocess.run(
             [str(executable), "-m", "pip", "check"],
             check=True,
             cwd=environment,
+            env=process_environment,
         )
         subprocess.run(
             [
                 str(executable),
                 "-c",
                 (
-                    "from importlib.metadata import distributions, requires, version; "
+                    "from importlib.metadata import (distributions, metadata, "
+                    "requires, version); "
+                    "from importlib.resources import files; "
+                    "from pathlib import Path; "
                     "import sys; import nautipy; "
                     f"fix_mode = {args.fix!r}; "
+                    f"expected_version = {expected_version!r}; "
                     "scientific = {'numpy', 'scipy'}; "
                     "installed = {distribution.metadata.get('Name', '').lower() "
                     "for distribution in distributions()}; "
                     "assert (scientific <= installed if fix_mode else "
                     "scientific.isdisjoint(installed)); "
                     "assert scientific.isdisjoint(sys.modules); "
+                    "assert nautipy.PositionInput; "
+                    "assert nautipy.CandidateDiagnostic; "
+                    "assert not hasattr(nautipy, 'import_module'); "
+                    "assert not hasattr(nautipy, 'TYPE_CHECKING'); "
                     "from nautipy.fix import (BearingObservation, "
                     "RangeObservation, solve_fix); "
                     "bearing_model = BearingObservation((0, 0), 90, 1); "
@@ -72,7 +97,12 @@ def main() -> None:
                     "from nautipy.geojson import ("
                     "from_geojson_feature_collection, "
                     "to_geojson_feature_collection, to_geojson_point); "
-                    "assert version('nautipy'); "
+                    "assert version('nautipy') == expected_version; "
+                    "assert Path(nautipy.__file__).resolve().is_relative_to("
+                    "Path(sys.prefix).resolve()); "
+                    "classifiers = metadata('nautipy').get_all('Classifier') or []; "
+                    "assert 'Typing :: Typed' in classifiers; "
+                    "assert files('nautipy').joinpath('py.typed').is_file(); "
                     "assert 'nautipy.geodesic' not in sys.modules; "
                     "assert 'geographiclib' not in sys.modules; "
                     "position = nautipy.parse_position('50.12257, 8.66570'); "
@@ -139,6 +169,7 @@ def main() -> None:
             ],
             check=True,
             cwd=environment,
+            env=process_environment,
         )
 
         if args.fix:
@@ -166,12 +197,23 @@ def main() -> None:
                         "target.latitude) < 1e-8; "
                         "assert abs(result.position.longitude - "
                         "target.longitude) < 1e-8; "
+                        "readme_references = ("
+                        "Position(50.116135, 8.670277), "
+                        "Position(50.112836, 8.666753), "
+                        "Position(50.110347, 8.659873)); "
+                        "readme_observations = tuple(RangeObservation("
+                        "reference, measured, uncertainty=2.0) "
+                        "for reference, measured in zip("
+                        "readme_references, "
+                        "(1275.251, 1599.237, 1917.145))); "
+                        "assert solve_fix(ranges=readme_observations).success; "
                         "import sys; "
                         "assert {'numpy', 'scipy'} <= set(sys.modules)"
                     ),
                 ],
                 check=True,
                 cwd=environment,
+                env=process_environment,
             )
 
         command = environment / (
@@ -189,6 +231,7 @@ def main() -> None:
             capture_output=True,
             text=True,
             cwd=environment,
+            env=process_environment,
         )
         if converted.returncode != 0:
             raise RuntimeError(converted.stderr)
@@ -203,6 +246,7 @@ def main() -> None:
             capture_output=True,
             text=True,
             cwd=environment,
+            env=process_environment,
         )
         if inspected.returncode != 0:
             raise RuntimeError(inspected.stderr)
@@ -218,6 +262,7 @@ def main() -> None:
             capture_output=True,
             text=True,
             cwd=environment,
+            env=process_environment,
         )
         if invalid.returncode != 2 or invalid.stdout:
             raise RuntimeError("malformed CLI input did not fail cleanly")
