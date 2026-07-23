@@ -38,13 +38,14 @@ All notable changes to NautiPy will be documented in this file.
   by the public coordinate parser and formatter.
 - Added tag-only release automation that validates versions and changelog
   notes, builds and tests artifacts once, and uses PyPI Trusted Publishing.
-- Added optional bearing, range, and mixed-observation WGS84 position fixes
+- Added bearing, range, and mixed-observation WGS84 position fixes
   with explicit candidate ambiguity, weighted residuals, convergence and
   geometry diagnostics, and conditional local uncertainty.
 - Added frozen external PROJ reference networks for mid-latitude and
   high-latitude antimeridian fix validation.
-- Added dependency-free observation/result models and a clear missing-extra
-  error for `python -m pip install "nautipy[fix]"`.
+- Added the complete fixing API to the top-level `nautipy` namespace,
+  including observations, results, statuses, candidate helpers, and
+  `solve_fix`.
 - Added standard-library tests, distribution build checks, clean-wheel smoke
   testing, and cross-platform GitHub Actions CI.
 
@@ -52,10 +53,11 @@ All notable changes to NautiPy will be documented in this file.
 
 - Replaced the experimental package with a clean PEP 517/PEP 621 `src` layout.
 - Set the first public package version to `0.1.0`.
-- Added GeographicLib 2.1 or newer as the sole runtime dependency while
-  preserving lazy, standard-library-only coordinate use.
-- Added NumPy and SciPy only to the isolated `fix` optional extra; normal
-  coordinate and navigation installations remain free of the scientific stack.
+- Added GeographicLib 2.1 or newer, NumPy, and SciPy as normal runtime
+  dependencies so one installation provides every feature.
+- Preserved a standard-library-only coordinate implementation and lazy
+  boundaries that keep geodesic and scientific modules out of coordinate-only
+  imports.
 
 ### Fixed
 

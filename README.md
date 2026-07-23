@@ -1,6 +1,7 @@
 # NautiPy
 
-**A small Python package for effortless coordinate handling and trustworthy WGS84 navigation calculations.**
+**Effortless coordinate handling, trustworthy WGS84 navigation, and diagnosed
+position fixes in one Python package.**
 
 > **Status:** clean pre-release rewrite. The experimental code previously in this repository has been replaced and is not a supported API. The first public package will start at version `0.1.0`.
 
@@ -10,8 +11,12 @@ The installable development package provides complete coordinate intake,
 inspection, formatting, and conversion for DD, DDM, DMS, ISO 6709, and NMEA
 field pairs. It also provides WGS84 distance, bearings, destinations,
 interpolation, nearest-position lookup, GeoJSON interchange, and a small
-command-line interface. An optional numerical extra adds diagnosed bearing and
-range position fixes without changing the normal installation:
+command-line interface. Diagnosed bearing and range position fixes are
+included in the same package and exposed through the same top-level API:
+
+```bash
+python -m pip install nautipy
+```
 
 ```python
 from nautipy import format_position, parse_position
@@ -47,12 +52,14 @@ The main value is:
 - conversion among decimal degrees, DDM, DMS, ISO 6709, and NMEA fields;
 - a small immutable `Position` model;
 - WGS84 distance, bearing, destination, and interpolation;
+- diagnosed bearing, range, and mixed-observation position fixes;
 - GeoJSON Point and FeatureCollection interchange;
 - `nautipy convert` and `nautipy inspect` command-line workflows; and
-- a lightweight installation without a general GIS or scientific stack.
+- one installation, with the complete fixing API available at top level.
 
-Bearing/range fixing is isolated in `nautipy.fix`; ordinary users do not
-install or import NumPy and SciPy.
+GeographicLib, NumPy, and SciPy are normal runtime dependencies. The
+coordinate implementation itself remains standard-library-only and
+coordinate-only module use does not import the geodesic or scientific layers.
 
 ## Coordinate API
 
@@ -123,15 +130,8 @@ coincident positions, interpolation, and nearest-position behavior.
 
 ### Estimate a bearing/range fix
 
-Install the optional numerical dependencies only when needed:
-
-```bash
-python -m pip install "nautipy[fix]"
-```
-
 ```python
-from nautipy import Position
-from nautipy.fix import RangeObservation, solve_fix
+from nautipy import Position, RangeObservation, solve_fix
 
 references = (
     Position(50.116135, 8.670277),
@@ -210,17 +210,18 @@ parse_position("120, 50", order="auto")  # longitude/latitude is provable
 parse_position("8, 50", order="auto")    # raises AmbiguousCoordinateError
 ```
 
-## Lightweight architecture
+## Dependency architecture
 
 The package is deliberately layered:
 
 - **coordinates:** Python standard library only;
-- **normal navigation:** one focused pure-Python WGS84 dependency,
-  GeographicLib;
-- **advanced fixes:** NumPy and SciPy only through the optional
-  `nautipy[fix]` extra.
+- **navigation:** GeographicLib for mature WGS84 geodesics; and
+- **advanced fixes:** NumPy and SciPy for numerical arrays, linear algebra,
+  and nonlinear least squares.
 
-NautiPy will not require pyproj, Shapely, pandas, NumPy, or SciPy for ordinary coordinate and navigation use.
+All three libraries install with NautiPy so every feature works immediately.
+Lazy module boundaries keep them out of coordinate-only imports. NautiPy does
+not require pyproj, Shapely, pandas, or a general GIS framework.
 
 ## Scope boundaries
 
@@ -247,9 +248,9 @@ The repository-local plan is designed for both human contributors and coding age
 The clean rewrite provides an immutable `Position`, complete coordinate
 conversion, WGS84 navigation, standard-library tests, package builds, and CI.
 It also provides GeoJSON interchange and a coordinate conversion/inspection
-CLI. The optional fix engine adds weighted regional position estimates with
-diagnostics, and the rewrite intentionally provides no compatibility layer for
-the old code.
+CLI. The integrated fix engine adds weighted regional position estimates with
+diagnostics through the top-level package, and the rewrite intentionally
+provides no compatibility layer for the old code.
 
 ## Distribution plan
 

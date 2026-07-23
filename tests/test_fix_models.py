@@ -1,13 +1,8 @@
 from dataclasses import FrozenInstanceError, replace
 from decimal import Decimal, localcontext
 from fractions import Fraction
-import builtins
 import inspect
 import math
-import os
-from pathlib import Path
-import random
-import subprocess
 import sys
 from types import SimpleNamespace
 import unittest
@@ -19,7 +14,6 @@ from nautipy.fix import (
     BearingObservation,
     CandidateResult,
     CandidateStatus,
-    FixDependencyError,
     FixError,
     FixResult,
     FixStatus,
@@ -721,12 +715,10 @@ class ResultModelTests(unittest.TestCase):
     def test_solver_and_result_share_stable_natural_rms_arithmetic(self) -> None:
         from nautipy import _fix_solver
 
-        generator = random.Random(157)
-        values = tuple(generator.random() for _ in range(1_000))
-        objective = sum(value * value for value in values)
+        values = (sys.float_info.max, sys.float_info.max)
         metrics = _fix_solver._metrics(
             tuple(SimpleNamespace(kind="range") for _ in values),
-            SimpleNamespace(objective=objective, natural=values),
+            SimpleNamespace(objective=2.0, natural=values),
         )
         stable = fix_module._root_mean_square(values)
         naive = math.sqrt(
@@ -734,10 +726,8 @@ class ResultModelTests(unittest.TestCase):
         )
 
         self.assertEqual(metrics[3], stable)
-        self.assertGreater(
-            abs(naive - stable),
-            8.0 * max(math.ulp(naive), math.ulp(stable)),
-        )
+        self.assertEqual(stable, sys.float_info.max)
+        self.assertTrue(math.isinf(naive))
 
     def test_fix_result_rejects_inconsistent_success_and_diagnostics(self) -> None:
         invalid_overrides = (
@@ -964,88 +954,8 @@ class ResultModelTests(unittest.TestCase):
             )
 
 
-class DependencyBoundaryTests(unittest.TestCase):
-    def test_fix_import_and_model_construction_need_no_optional_modules(self) -> None:
-        source_root = Path(__file__).resolve().parents[1] / "src"
-        script = r'''
-import builtins
-import sys
-
-real_import = builtins.__import__
-blocked = {"numpy", "scipy", "geographiclib"}
-
-def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-    root = name.partition(".")[0]
-    if root in blocked:
-        raise ModuleNotFoundError(f"blocked {root}", name=root)
-    return real_import(name, globals, locals, fromlist, level)
-
-builtins.__import__ = guarded_import
-import nautipy.fix as fix
-
-observation = fix.BearingObservation("50, 8", 370, 1)
-assert observation.bearing == 10.0
-assert not (blocked & set(sys.modules))
-try:
-    fix._scientific()
-except fix.FixDependencyError as error:
-    assert str(error) == ('optional fix calculations require NumPy and SciPy; '
-                          'install them with: python -m pip install "nautipy[fix]"')
-else:
-    raise AssertionError("missing dependency error was not raised")
-'''
-        environment = os.environ.copy()
-        environment["PYTHONPATH"] = str(source_root)
-        completed = subprocess.run(
-            [sys.executable, "-c", script],
-            cwd=source_root.parent,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
-    def test_missing_scipy_has_exact_error_and_nested_import_errors_propagate(
-        self,
-    ) -> None:
-        real_import = builtins.__import__
-
-        def scipy_missing(
-            name: str,
-            globals: object = None,
-            locals: object = None,
-            fromlist: object = (),
-            level: int = 0,
-        ) -> object:
-            if name == "numpy":
-                return object()
-            if name == "scipy.optimize":
-                raise ModuleNotFoundError("missing scipy", name="scipy")
-            return real_import(name, globals, locals, fromlist, level)
-
-        with patch("builtins.__import__", side_effect=scipy_missing):
-            with self.assertRaises(FixDependencyError) as raised:
-                fix_module._scientific()
-        self.assertEqual(
-            str(raised.exception),
-            "optional fix calculations require NumPy and SciPy; install them "
-            'with: python -m pip install "nautipy[fix]"',
-        )
-        self.assertIsNone(raised.exception.__cause__)
-
-        nested = ModuleNotFoundError("missing backend", name="array_backend")
-
-        def nested_missing(*args: object, **kwargs: object) -> object:
-            raise nested
-
-        with patch("builtins.__import__", side_effect=nested_missing):
-            with self.assertRaises(ModuleNotFoundError) as propagated:
-                fix_module._scientific()
-        self.assertIs(propagated.exception, nested)
-
-    def test_public_wrappers_inject_dependencies_into_private_solver(self) -> None:
+class PublicFixApiTests(unittest.TestCase):
+    def test_public_wrappers_delegate_to_private_solver(self) -> None:
         bearing = BearingObservation((0, 0), 10, 1)
         range_observation = RangeObservation((0, 0), 100, 2)
         expected = object()
@@ -1054,13 +964,8 @@ else:
             two_range_candidates=Mock(return_value=expected),
             solve_fix=Mock(return_value=expected),
         )
-        scientific = (object(), object())
 
-        with patch.object(
-            fix_module,
-            "_scientific",
-            return_value=scientific,
-        ), patch.dict(
+        with patch.dict(
             sys.modules,
             {"nautipy._fix_solver": solver},
         ), patch.object(
@@ -1094,21 +999,15 @@ else:
                 expected,
             )
 
-        injected = {
-            "numpy": scientific[0],
-            "least_squares": scientific[1],
-        }
         solver.two_bearing_candidates.assert_called_once_with(
             bearing,
             bearing,
             search_center="1, 2",
             search_radius=123,
-            **injected,
         )
         solver.two_range_candidates.assert_called_once_with(
             range_observation,
             range_observation,
-            **injected,
         )
         solver.solve_fix.assert_called_once_with(
             bearings=[bearing],
@@ -1117,16 +1016,30 @@ else:
             search_center="3, 4",
             search_radius=456,
             max_iterations=7,
-            **injected,
         )
 
-    def test_only_fix_errors_are_exported_at_package_top_level(self) -> None:
-        self.assertIs(nautipy.FixError, FixError)
-        self.assertIs(nautipy.FixDependencyError, FixDependencyError)
-        self.assertTrue(issubclass(FixDependencyError, FixError))
-        self.assertTrue(issubclass(FixDependencyError, ImportError))
-        self.assertFalse(hasattr(nautipy, "BearingObservation"))
-        self.assertFalse(hasattr(nautipy, "solve_fix"))
+    def test_complete_fix_api_is_exported_at_package_top_level(self) -> None:
+        names = (
+            "BearingObservation",
+            "RangeObservation",
+            "ObservationResidual",
+            "FixUncertainty",
+            "FixStatus",
+            "CandidateStatus",
+            "CandidateResult",
+            "FixResult",
+            "FixError",
+            "two_bearing_candidates",
+            "two_range_candidates",
+            "solve_fix",
+        )
+        for name in names:
+            with self.subTest(name=name):
+                self.assertIs(
+                    getattr(nautipy, name),
+                    getattr(fix_module, name),
+                )
+        self.assertFalse(hasattr(nautipy, "FixDependencyError"))
 
 
 if __name__ == "__main__":

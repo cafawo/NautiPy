@@ -1,9 +1,4 @@
-"""Optional bearing/range position-fix models and entry points.
-
-The public models in this module use only the Python standard library.  NumPy
-and SciPy are loaded lazily when a calculation is requested, so importing the
-module and constructing observations does not require the ``fix`` extra.
-"""
+"""Bearing/range position-fix models and lazily evaluated calculations."""
 
 from __future__ import annotations
 
@@ -25,13 +20,9 @@ from math import (
 from numbers import Rational, Real
 
 from .coordinates import PositionInput, parse_position
-from .errors import FixDependencyError, FixError
+from .errors import FixError
 from .position import Position
 
-_FIX_INSTALL_MESSAGE = (
-    "optional fix calculations require NumPy and SciPy; install them with: "
-    'python -m pip install "nautipy[fix]"'
-)
 _CHI_SQUARE_2D_95_SCALE = sqrt(-2.0 * log(0.05))
 _DEGENERATE_CONDITION = 1_000_000.0
 _COVARIANCE_DECIMAL_CONTEXT = Context(
@@ -51,7 +42,6 @@ __all__ = [
     "CandidateResult",
     "FixResult",
     "FixError",
-    "FixDependencyError",
     "two_bearing_candidates",
     "two_range_candidates",
     "solve_fix",
@@ -1012,25 +1002,6 @@ class FixResult:
         object.__setattr__(self, "competing_positions", competing_positions)
 
 
-def _scientific() -> tuple[object, object]:
-    """Return optional numerical dependencies without importing them eagerly."""
-
-    try:
-        import numpy
-    except ModuleNotFoundError as error:
-        if error.name != "numpy":
-            raise
-        raise FixDependencyError(_FIX_INSTALL_MESSAGE) from None
-
-    try:
-        from scipy.optimize import least_squares
-    except ModuleNotFoundError as error:
-        if error.name not in {"numpy", "scipy"}:
-            raise
-        raise FixDependencyError(_FIX_INSTALL_MESSAGE) from None
-    return numpy, least_squares
-
-
 def two_bearing_candidates(
     first: BearingObservation,
     second: BearingObservation,
@@ -1040,7 +1011,6 @@ def two_bearing_candidates(
 ) -> CandidateResult:
     """Return all two-bearing candidates in the bounded WGS84 search disk."""
 
-    numpy, least_squares = _scientific()
     from . import _fix_solver
 
     return _fix_solver.two_bearing_candidates(
@@ -1048,8 +1018,6 @@ def two_bearing_candidates(
         second,
         search_center=search_center,
         search_radius=search_radius,
-        numpy=numpy,
-        least_squares=least_squares,
     )
 
 
@@ -1059,14 +1027,11 @@ def two_range_candidates(
 ) -> CandidateResult:
     """Return all supported regional WGS84 candidates for two ranges."""
 
-    numpy, least_squares = _scientific()
     from . import _fix_solver
 
     return _fix_solver.two_range_candidates(
         first,
         second,
-        numpy=numpy,
-        least_squares=least_squares,
     )
 
 
@@ -1081,7 +1046,6 @@ def solve_fix(
 ) -> FixResult:
     """Estimate a position from bearing and range observations."""
 
-    numpy, least_squares = _scientific()
     from . import _fix_solver
 
     return _fix_solver.solve_fix(
@@ -1091,6 +1055,4 @@ def solve_fix(
         search_center=search_center,
         search_radius=search_radius,
         max_iterations=max_iterations,
-        numpy=numpy,
-        least_squares=least_squares,
     )

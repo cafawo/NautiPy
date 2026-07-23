@@ -19,11 +19,13 @@ undocumented serialization details are not compatibility promises. Public
 exception types and documented diagnostic fields are part of the API even
 when their full message text is not.
 
-The supported import modules are `nautipy`, `nautipy.coordinates`,
-`nautipy.errors`, `nautipy.position`, `nautipy.geodesic`, `nautipy.geojson`,
-and `nautipy.fix`. `nautipy.cli` and `nautipy.__main__` implement the
-documented command-line interface, but their Python-level names are not public
-API. Modules whose final component begins with an underscore are private.
+The complete coordinate, navigation, and fixing API is available from
+`nautipy`. Public submodules organize related implementations and remain
+supported where they define documented `__all__` exports, but users do not
+need a special module path to access fixing. `nautipy.cli` and
+`nautipy.__main__` implement the documented command-line interface, but their
+Python-level names are not public API. Modules whose final component begins
+with an underscore are private.
 
 ## Versioning
 
@@ -46,12 +48,12 @@ The authoritative Python range is the `requires-python` value in
 conda-forge metadata must agree with it. Prose documentation deliberately does
 not duplicate the range.
 
-The oldest and newest supported Python versions receive the complete core test
-suite. The optional fix engine is tested across the supported Python matrix
-with normally resolved dependencies, and a separate oldest-Python job tests
-the exact declared minimum dependency versions. Built-artifact checks run on
-the newest supported Python. Linux, macOS, and Windows receive installation
-and public-API smoke coverage.
+The oldest and newest supported Python versions receive the complete test
+suite, including the fix engine, with normally resolved dependencies. A
+separate oldest-Python job tests the exact declared minimum GeographicLib,
+NumPy, and SciPy versions. Built-artifact checks run on the newest supported
+Python. Linux, macOS, and Windows receive plain-install and complete public-API
+smoke coverage.
 
 Adding or dropping a Python version is a minor-release change and is never
 hidden in a patch release. A planned removal should be announced one minor

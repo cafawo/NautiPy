@@ -5,7 +5,6 @@ __all__ = [
     "CoordinateError",
     "CoordinateParseError",
     "CoordinateRangeError",
-    "FixDependencyError",
     "FixError",
     "NautiPyError",
     "NavigationError",
@@ -22,10 +21,6 @@ class NavigationError(NautiPyError):
 
 class FixError(NautiPyError):
     """Raised for invalid position-fix inputs or calculations."""
-
-
-class FixDependencyError(FixError, ImportError):
-    """Raised when optional scientific fix dependencies are unavailable."""
 
 
 class CoordinateError(NautiPyError):

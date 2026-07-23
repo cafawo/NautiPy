@@ -1,32 +1,24 @@
 from __future__ import annotations
 
-import importlib.util
 import unittest
 from unittest.mock import patch
 
-from nautipy import Position, destination, distance, initial_bearing
-from nautipy.errors import FixError, NavigationError
-from nautipy.fix import (
+from nautipy import (
     BearingObservation,
     CandidateStatus,
     FixStatus,
+    Position,
     RangeObservation,
+    destination,
+    distance,
+    initial_bearing,
     solve_fix,
     two_bearing_candidates,
     two_range_candidates,
 )
+from nautipy.errors import FixError, NavigationError
 
 
-SCIENTIFIC_AVAILABLE = all(
-    importlib.util.find_spec(name) is not None
-    for name in ("geographiclib", "numpy", "scipy")
-)
-
-
-@unittest.skipUnless(
-    SCIENTIFIC_AVAILABLE,
-    'solver tests require python -m pip install "nautipy[fix]"',
-)
 class FixSolverTests(unittest.TestCase):
     target = Position(0.01, 0.01)
     stations = (

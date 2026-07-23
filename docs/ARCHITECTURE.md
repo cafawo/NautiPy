@@ -2,7 +2,8 @@
 
 ## Goal
 
-NautiPy should be easy to install, easy to understand, and useful without pulling a GIS or scientific-computing stack into every environment.
+NautiPy should be easy to install, easy to understand, and complete after one
+ordinary installation.
 
 The architecture follows the user journey:
 
@@ -13,7 +14,7 @@ validated Position
         ↓
 format conversion or WGS84 navigation
         ↓
-optional bearing/range fix
+diagnosed bearing/range fix
 ```
 
 The repository is a clean rewrite. The old implementation does not define module boundaries, public names, or compatibility requirements.
@@ -63,18 +64,9 @@ of geodesic code.
 
 The dependency is part of the normal `nautipy` installation only when the navigation API ships. Do not add a broad CRS/GIS framework merely for direct and inverse geodesics.
 
-### 3. Fix engine — optional extra
+### 3. Fix engine — integrated numerical layer
 
-The fix engine is valuable but materially heavier. It is isolated from the
-stable coordinate and navigation layers behind an optional extra.
-
-Installation:
-
-```bash
-python -m pip install "nautipy[fix]"
-```
-
-The extra contains only NumPy and SciPy for:
+The fix engine uses NumPy and SciPy for:
 
 - overdetermined bearing-only fixes;
 - range-only fixes;
@@ -83,27 +75,29 @@ The extra contains only NumPy and SciPy for:
 - covariance or confidence estimates; and
 - geometry diagnostics.
 
-Coordinate and navigation imports must continue to work when the optional extra is absent. Calling optional functionality without its dependencies should raise one short error with the exact installation command.
+These libraries are normal runtime dependencies, so every solver function is
+available after `pip install nautipy`. The complete fix API is exported from
+the top-level `nautipy` namespace; source modules organize the implementation
+and do not define a separate product or installation boundary.
 
-`nautipy.fix` itself contains standard-library observation and result models.
-It loads the private numerical implementation, NumPy, and SciPy only when a
-candidate or solver function is called. The numerical layer uses bounded local
-east/north metre coordinates and exact WGS84 predictions. See [FIXES.md](FIXES.md).
+NumPy, SciPy, and the private numerical implementation are loaded only when a
+candidate or solver calculation needs them. Coordinate-only module use must
+not load the scientific stack. The numerical layer uses bounded local
+east/north metre coordinates and exact WGS84 predictions. See
+[FIXES.md](FIXES.md).
 
 ## Dependency budget
 
 ### Normal installation
 
-Target at first public release:
+The first public release has three direct runtime dependencies:
 
-- Python standard library;
-- at most one runtime dependency, used for WGS84 geodesics.
+- GeographicLib for WGS84 geodesics;
+- NumPy for numerical arrays and linear algebra; and
+- SciPy for nonlinear least-squares optimization.
 
-### Optional fix installation
-
-- NumPy;
-- SciPy;
-- no additional optimization framework unless a demonstrated requirement cannot be met by SciPy.
+Do not add another optimization framework unless a demonstrated requirement
+cannot be met by SciPy.
 
 ### Development and release tooling
 
@@ -123,7 +117,8 @@ Before adding a runtime dependency, answer all of the following in the pull requ
 1. Which shipped user-facing feature needs it?
 2. What correctness or maintenance risk does it remove?
 3. Why is the standard library or an existing dependency insufficient?
-4. Can it be isolated in an optional extra?
+4. Does it belong in the one complete installation, and can its imports remain
+   isolated from coordinate-only use?
 5. Does it support the Python versions and platforms declared by NautiPy?
 6. Does importing coordinate-only functionality avoid importing it?
 
@@ -143,7 +138,7 @@ src/
     ├── geodesic.py       # added with the navigation milestone
     ├── geojson.py        # added when interchange ships
     ├── cli.py            # added only if the CLI ships
-    ├── fix.py            # dependency-free public optional models/API
+    ├── fix.py            # fix models and public implementation
     └── _fix_solver.py    # lazily loaded numerical implementation
 ```
 
@@ -192,7 +187,18 @@ CoordinateParseError
 CoordinateRangeError
 AmbiguousCoordinateError
 FixError
-FixDependencyError
+BearingObservation
+RangeObservation
+ObservationResidual
+FixUncertainty
+FixStatus
+CandidateStatus
+CandidateResult
+FixResult
+
+two_bearing_candidates
+two_range_candidates
+solve_fix
 ```
 
 The less frequently used `to_geojson_point`, `from_geojson_point`,
@@ -200,9 +206,9 @@ The less frequently used `to_geojson_point`, `from_geojson_point`,
 functions are public from `nautipy.geojson` rather than expanding the
 top-level namespace.
 
-Observation models, candidate geometry, and solver functions are public from
-`nautipy.fix`, not the top-level namespace. Only the common fix exception types
-join the top-level exception hierarchy.
+Observation models, result models, statuses, candidate helpers, and
+`solve_fix` are all available from `nautipy`. The underlying fix modules are
+an organizational boundary only; users do not need a special import path.
 
 Detailed parser helpers, token types, backend objects, and third-party result values remain private.
 

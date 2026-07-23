@@ -16,11 +16,6 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Install and smoke-test one NautiPy distribution artifact."
     )
-    parser.add_argument(
-        "--fix",
-        action="store_true",
-        help="install the 'fix' extra and exercise the optional solver",
-    )
     parser.add_argument("artifact", type=Path, metavar="DIST.whl|DIST.tar.gz")
     return parser.parse_args()
 
@@ -55,8 +50,7 @@ def main() -> None:
             "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
         )
         install_command = [str(executable), "-m", "pip", "install"]
-        install_target = f"{artifact}[fix]" if args.fix else str(artifact)
-        install_command.append(install_target)
+        install_command.append(str(artifact))
         subprocess.run(install_command, check=True, env=process_environment)
         subprocess.run(
             [str(executable), "-m", "pip", "check"],
@@ -74,25 +68,30 @@ def main() -> None:
                     "from importlib.resources import files; "
                     "from pathlib import Path; "
                     "import sys; import nautipy; "
-                    f"fix_mode = {args.fix!r}; "
                     f"expected_version = {expected_version!r}; "
                     "scientific = {'numpy', 'scipy'}; "
                     "installed = {distribution.metadata.get('Name', '').lower() "
                     "for distribution in distributions()}; "
-                    "assert (scientific <= installed if fix_mode else "
-                    "scientific.isdisjoint(installed)); "
+                    "assert scientific <= installed; "
                     "assert scientific.isdisjoint(sys.modules); "
                     "assert nautipy.PositionInput; "
                     "assert nautipy.CandidateDiagnostic; "
                     "assert not hasattr(nautipy, 'import_module'); "
                     "assert not hasattr(nautipy, 'TYPE_CHECKING'); "
-                    "from nautipy.fix import (BearingObservation, "
-                    "RangeObservation, solve_fix); "
-                    "bearing_model = BearingObservation((0, 0), 90, 1); "
-                    "range_model = RangeObservation((0, 0), 100, 1); "
+                    "fix_exports = ('BearingObservation', 'RangeObservation', "
+                    "'ObservationResidual', 'FixUncertainty', 'FixStatus', "
+                    "'CandidateStatus', 'CandidateResult', 'FixResult', "
+                    "'two_bearing_candidates', 'two_range_candidates', "
+                    "'solve_fix'); "
+                    "assert all(hasattr(nautipy, name) for name in fix_exports); "
+                    "assert not hasattr(nautipy, 'FixDependencyError'); "
+                    "bearing_model = nautipy.BearingObservation("
+                    "(0, 0), 90, 1); "
+                    "range_model = nautipy.RangeObservation("
+                    "(0, 0), 100, 1); "
                     "assert bearing_model.reference == nautipy.Position(0, 0); "
                     "assert range_model.reference == nautipy.Position(0, 0); "
-                    "assert callable(solve_fix); "
+                    "assert callable(nautipy.solve_fix); "
                     "assert scientific.isdisjoint(sys.modules); "
                     "from nautipy.geojson import ("
                     "from_geojson_feature_collection, "
@@ -152,19 +151,17 @@ def main() -> None:
                     "position, [end, position]) == position; "
                     "assert 'nautipy.geodesic' in sys.modules; "
                     "assert 'geographiclib.geodesic' in sys.modules; "
-                    "assert fix_mode or scientific.isdisjoint(sys.modules); "
+                    "assert scientific.isdisjoint(sys.modules); "
                     "assert not hasattr(nautipy, 'Pos'); "
                     "requirements = requires('nautipy') or []; "
                     "normalized = sorted(requirement.replace(' ', '').replace("
                     "\"'\", '\"') for requirement in requirements); "
-                    "base = [requirement for requirement in normalized "
-                    "if ';extra==' not in requirement]; "
-                    "fix = [requirement for requirement in normalized "
-                    "if ';extra==' in requirement]; "
-                    "assert base == ['geographiclib>=2.1']; "
-                    "assert fix == ["
-                    "'numpy>=1.23.5;extra==\"fix\"', "
-                    "'scipy>=1.14.1;extra==\"fix\"']"
+                    "assert normalized == ["
+                    "'geographiclib>=2.1', "
+                    "'numpy>=1.23.5', "
+                    "'scipy>=1.14.1']; "
+                    "assert not (metadata('nautipy').get_all("
+                    "'Provides-Extra') or [])"
                 ),
             ],
             check=True,
@@ -172,49 +169,46 @@ def main() -> None:
             env=process_environment,
         )
 
-        if args.fix:
-            subprocess.run(
-                [
-                    str(executable),
-                    "-c",
-                    (
-                        "from nautipy import (Position, distance, "
-                        "initial_bearing); "
-                        "from nautipy.fix import (BearingObservation, "
-                        "RangeObservation, solve_fix); "
-                        "target = Position(0.01, 0.01); "
-                        "stations = (Position(0, 0), Position(0, 0.02), "
-                        "Position(0.02, 0)); "
-                        "bearings = tuple(BearingObservation("
-                        "station, initial_bearing(target, station), "
-                        "uncertainty=1.0) for station in stations); "
-                        "ranges = tuple(RangeObservation("
-                        "station, distance(station, target), "
-                        "uncertainty=1.0) for station in stations); "
-                        "result = solve_fix(bearings=bearings, ranges=ranges); "
-                        "assert result.success; "
-                        "assert abs(result.position.latitude - "
-                        "target.latitude) < 1e-8; "
-                        "assert abs(result.position.longitude - "
-                        "target.longitude) < 1e-8; "
-                        "readme_references = ("
-                        "Position(50.116135, 8.670277), "
-                        "Position(50.112836, 8.666753), "
-                        "Position(50.110347, 8.659873)); "
-                        "readme_observations = tuple(RangeObservation("
-                        "reference, measured, uncertainty=2.0) "
-                        "for reference, measured in zip("
-                        "readme_references, "
-                        "(1275.251, 1599.237, 1917.145))); "
-                        "assert solve_fix(ranges=readme_observations).success; "
-                        "import sys; "
-                        "assert {'numpy', 'scipy'} <= set(sys.modules)"
-                    ),
-                ],
-                check=True,
-                cwd=environment,
-                env=process_environment,
-            )
+        subprocess.run(
+            [
+                str(executable),
+                "-c",
+                (
+                    "from nautipy import (BearingObservation, Position, "
+                    "RangeObservation, distance, initial_bearing, solve_fix); "
+                    "target = Position(0.01, 0.01); "
+                    "stations = (Position(0, 0), Position(0, 0.02), "
+                    "Position(0.02, 0)); "
+                    "bearings = tuple(BearingObservation("
+                    "station, initial_bearing(target, station), "
+                    "uncertainty=1.0) for station in stations); "
+                    "ranges = tuple(RangeObservation("
+                    "station, distance(station, target), "
+                    "uncertainty=1.0) for station in stations); "
+                    "result = solve_fix(bearings=bearings, ranges=ranges); "
+                    "assert result.success; "
+                    "assert abs(result.position.latitude - "
+                    "target.latitude) < 1e-8; "
+                    "assert abs(result.position.longitude - "
+                    "target.longitude) < 1e-8; "
+                    "readme_references = ("
+                    "Position(50.116135, 8.670277), "
+                    "Position(50.112836, 8.666753), "
+                    "Position(50.110347, 8.659873)); "
+                    "readme_observations = tuple(RangeObservation("
+                    "reference, measured, uncertainty=2.0) "
+                    "for reference, measured in zip("
+                    "readme_references, "
+                    "(1275.251, 1599.237, 1917.145))); "
+                    "assert solve_fix(ranges=readme_observations).success; "
+                    "import sys; "
+                    "assert {'numpy', 'scipy'} <= set(sys.modules)"
+                ),
+            ],
+            check=True,
+            cwd=environment,
+            env=process_environment,
+        )
 
         command = environment / (
             "Scripts/nautipy.exe" if sys.platform == "win32" else "bin/nautipy"

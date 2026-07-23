@@ -1,4 +1,4 @@
-"""Small public API for NautiPy coordinates and WGS84 navigation."""
+"""Public API for NautiPy coordinates, navigation, and position fixing."""
 
 import importlib as _importlib
 import typing as _typing
@@ -17,10 +17,22 @@ from .errors import (
     CoordinateError,
     CoordinateParseError,
     CoordinateRangeError,
-    FixDependencyError,
     FixError,
     NavigationError,
     NautiPyError,
+)
+from .fix import (
+    BearingObservation,
+    CandidateResult,
+    CandidateStatus,
+    FixResult,
+    FixStatus,
+    FixUncertainty,
+    ObservationResidual,
+    RangeObservation,
+    solve_fix,
+    two_bearing_candidates,
+    two_range_candidates,
 )
 from .position import Position
 
@@ -64,10 +76,20 @@ __all__ = [
     "destination",
     "interpolate",
     "nearest_position",
+    "BearingObservation",
+    "RangeObservation",
+    "ObservationResidual",
+    "FixUncertainty",
+    "FixStatus",
+    "CandidateStatus",
+    "CandidateResult",
+    "FixResult",
+    "two_bearing_candidates",
+    "two_range_candidates",
+    "solve_fix",
     "NautiPyError",
     "NavigationError",
     "FixError",
-    "FixDependencyError",
     "CoordinateError",
     "CoordinateParseError",
     "CoordinateRangeError",

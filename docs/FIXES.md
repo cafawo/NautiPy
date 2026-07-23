@@ -1,21 +1,21 @@
 # Bearing and range position fixes
 
-The optional `nautipy.fix` module estimates a two-dimensional WGS84 position
-from true bearings, surface ranges, or both. It reports convergence, residuals,
-geometry, competing solutions, and local uncertainty instead of returning an
-unqualified latitude/longitude pair.
+NautiPy estimates a two-dimensional WGS84 position from true bearings, surface
+ranges, or both. It reports convergence, residuals, geometry, competing
+solutions, and local uncertainty instead of returning an unqualified
+latitude/longitude pair.
 
-Install the numerical dependencies explicitly:
+One ordinary installation provides coordinates, navigation, and fixing:
 
 ```bash
-python -m pip install "nautipy[fix]"
+python -m pip install nautipy
 ```
 
-The normal installation does not include NumPy or SciPy. Importing `nautipy`,
-using coordinates or navigation, importing `nautipy.fix`, and constructing
-observation models do not load them. Calling a candidate or solver function
-without the extra raises `FixDependencyError` and includes the installation
-command above.
+GeographicLib, NumPy, and SciPy are normal runtime dependencies. The complete
+fixing API is available from the top-level `nautipy` namespace, so users do not
+need a special import path. Scientific modules and the numerical solver are
+still loaded only when a fix calculation needs them; coordinate-only module
+use does not import them.
 
 ## Observation meaning and units
 
@@ -34,8 +34,7 @@ the vessel. Do not reverse a bearing by adding 180 degrees: reciprocal initial
 geodesic bearings are not generally exact opposites on an ellipsoid.
 
 ```python
-from nautipy import Position
-from nautipy.fix import BearingObservation, RangeObservation
+from nautipy import BearingObservation, Position, RangeObservation
 
 landmark = Position(50.116135, 8.670277)
 
@@ -64,8 +63,7 @@ magnetic corrections, and robust-loss models are outside this first API.
 ## Solving a fix
 
 ```python
-from nautipy import Position
-from nautipy.fix import RangeObservation, solve_fix
+from nautipy import Position, RangeObservation, solve_fix
 
 references = (
     Position(50.116135, 8.670277),

@@ -84,10 +84,12 @@ select the first candidate, and invalid candidates are not silently skipped.
 
 Navigation uses
 [GeographicLib 2.1 or newer](https://pypi.org/project/geographiclib/) as the
-normal installation's sole runtime dependency. GeographicLib is a maintained,
-MIT-licensed, pure-Python implementation of robust ellipsoidal direct, inverse,
-and geodesic-line algorithms. Version 2.1 declares Python 3.7 and newer and
-ships a platform-independent wheel with no transitive dependencies.
+navigation layer's focused dependency and one of NautiPy's three direct
+runtime dependencies. GeographicLib is a maintained, MIT-licensed, pure-Python
+implementation of robust ellipsoidal direct, inverse, and geodesic-line
+algorithms. Version 2.1 declares Python 3.7 and newer and ships a
+platform-independent wheel with no transitive dependencies. NumPy and SciPy
+serve the integrated fix engine rather than navigation calculations.
 
 The backend is imported only when a navigation calculation is requested.
 Importing `nautipy`, parsing coordinates, and formatting coordinates do not

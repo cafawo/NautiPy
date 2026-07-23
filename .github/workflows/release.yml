@@ -56,32 +56,12 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e .
-      - run: python -m unittest discover -s tests -v
-
-  fix-test:
-    name: Test release fix extra on Python ${{ matrix.python-version }}
-    needs: validate
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.14"]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[fix]"
       - run: python -m pip check
       - run: python -m unittest discover -s tests -v
 
   build:
     name: Build release artifacts once
-    needs: [validate, test, fix-test]
+    needs: [validate, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -135,14 +115,6 @@ jobs:
         run: python scripts/smoke_test_artifact.py release-bundle/packages/*.whl
       - name: Smoke-test the source distribution
         run: python scripts/smoke_test_artifact.py release-bundle/packages/*.tar.gz
-      - name: Smoke-test the wheel with the fix extra
-        run: >-
-          python scripts/smoke_test_artifact.py --fix
-          release-bundle/packages/*.whl
-      - name: Smoke-test the source distribution with the fix extra
-        run: >-
-          python scripts/smoke_test_artifact.py --fix
-          release-bundle/packages/*.tar.gz
       - name: Check installed dependency consistency
         run: |
           python -m venv .artifact-venv

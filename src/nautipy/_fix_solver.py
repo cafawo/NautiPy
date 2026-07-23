@@ -1,9 +1,4 @@
-"""Private WGS84 bearing/range candidate geometry and least-squares engine.
-
-The public models and dependency boundary live in :mod:`nautipy.fix`.  This
-module deliberately receives NumPy and SciPy's ``least_squares`` callable from
-that boundary so importing ordinary NautiPy functionality remains light.
-"""
+"""Private WGS84 bearing/range candidate geometry and least-squares engine."""
 
 from __future__ import annotations
 
@@ -23,6 +18,9 @@ from math import (
 )
 from numbers import Real
 from typing import Iterable, Sequence
+
+import numpy
+from scipy.optimize import least_squares
 
 from .coordinates import parse_position
 from .errors import FixError
@@ -239,10 +237,9 @@ def _values(
 
 
 class _Problem:
-    def __init__(self, specs: Sequence[_Spec], chart: _Chart, numpy: object) -> None:
+    def __init__(self, specs: Sequence[_Spec], chart: _Chart) -> None:
         self.specs = specs
         self.chart = chart
-        self.numpy = numpy
         self.iterations = 0
 
     def residuals(self, coordinates: object) -> object:
@@ -250,7 +247,7 @@ class _Problem:
         north = float(coordinates[1])  # type: ignore[index]
         position = self.chart.to_position(east, north)
         standardized = _values(self.specs, position)[2]
-        return self.numpy.asarray(standardized, dtype=float)  # type: ignore[attr-defined]
+        return numpy.asarray(standardized, dtype=float)
 
     def jacobian(self, coordinates: object) -> object:
         self.iterations += 1
@@ -272,12 +269,12 @@ class _Problem:
                 )
                 column.append(difference / (2.0 * step * _spec_scale(spec)))
             columns.append(column)
-        return self.numpy.asarray(columns, dtype=float).T  # type: ignore[attr-defined]
+        return numpy.asarray(columns, dtype=float).T
 
 
-def _rank_condition(jacobian: object, numpy: object) -> tuple[int, float | None]:
+def _rank_condition(jacobian: object) -> tuple[int, float | None]:
     try:
-        singular = numpy.linalg.svd(  # type: ignore[attr-defined]
+        singular = numpy.linalg.svd(
             jacobian,
             compute_uv=False,
             full_matrices=False,
@@ -287,7 +284,7 @@ def _rank_condition(jacobian: object, numpy: object) -> tuple[int, float | None]
     values = tuple(float(value) for value in singular)
     if not values or not isfinite(values[0]) or values[0] <= 0.0:
         return (0, None)
-    epsilon = float(numpy.finfo(float).eps)  # type: ignore[attr-defined]
+    epsilon = float(numpy.finfo(float).eps)
     shape = getattr(jacobian, "shape", (len(values), 2))
     threshold = max(int(shape[0]), int(shape[1])) * epsilon * values[0]
     rank = sum(value > threshold for value in values)
@@ -306,28 +303,26 @@ def _optimize(
     *,
     bound: float,
     max_iterations: int,
-    numpy: object,
-    least_squares: object,
 ) -> _Run | None:
     margin = max(1e-6, bound * 1e-12)
     clipped = (
         max(-bound + margin, min(bound - margin, float(start[0]))),
         max(-bound + margin, min(bound - margin, float(start[1]))),
     )
-    problem = _Problem(specs, chart, numpy)
+    problem = _Problem(specs, chart)
     scale = max(1.0, min(100_000.0, bound / 10.0))
     try:
-        result = least_squares(  # type: ignore[operator]
+        result = least_squares(
             problem.residuals,
-            numpy.asarray(clipped, dtype=float),  # type: ignore[attr-defined]
+            numpy.asarray(clipped, dtype=float),
             jac=problem.jacobian,
             bounds=(
-                numpy.asarray((-bound, -bound), dtype=float),  # type: ignore[attr-defined]
-                numpy.asarray((bound, bound), dtype=float),  # type: ignore[attr-defined]
+                numpy.asarray((-bound, -bound), dtype=float),
+                numpy.asarray((bound, bound), dtype=float),
             ),
             method="trf",
             loss="linear",
-            x_scale=numpy.asarray((scale, scale), dtype=float),  # type: ignore[attr-defined]
+            x_scale=numpy.asarray((scale, scale), dtype=float),
             max_nfev=max_iterations,
             ftol=1e-10,
             xtol=1e-10,
@@ -342,7 +337,7 @@ def _optimize(
             return None
         optimizer_iterations = problem.iterations
         jacobian = problem.jacobian(result.x)
-        rank, condition = _rank_condition(jacobian, numpy)
+        rank, condition = _rank_condition(jacobian)
         objective = sum(value * value for value in standardized)
         if not isfinite(objective):
             return None
@@ -669,8 +664,6 @@ def two_bearing_candidates(
     *,
     search_center: object,
     search_radius: object,
-    numpy: object,
-    least_squares: object,
 ) -> object:
     """Return the bounded regional candidate for two unknown-to-reference bearings."""
 
@@ -728,8 +721,6 @@ def two_bearing_candidates(
             start,
             bound=radius,
             max_iterations=200,
-            numpy=numpy,
-            least_squares=least_squares,
         )
         if (
             run is not None
@@ -794,9 +785,6 @@ def two_bearing_candidates(
 def two_range_candidates(
     first: object,
     second: object,
-    *,
-    numpy: object,
-    least_squares: object,
 ) -> object:
     """Return all regional WGS84 intersections of two range circles."""
 
@@ -850,8 +838,6 @@ def two_range_candidates(
             (0.0, 0.0),
             bound=bound,
             max_iterations=200,
-            numpy=numpy,
-            least_squares=least_squares,
         )
         if (
             run is not None
@@ -895,7 +881,6 @@ def _linear_bearing_seed(
     bearings: Sequence[object],
     chart: _Chart,
     scale: float,
-    numpy: object,
 ) -> tuple[float, float] | None:
     if len(bearings) < 2:
         return None
@@ -925,7 +910,6 @@ def _linear_bearing_seed(
 def _linear_range_seed(
     ranges: Sequence[object],
     chart: _Chart,
-    numpy: object,
 ) -> tuple[float, float] | None:
     if len(ranges) < 3:
         return None
@@ -965,7 +949,6 @@ def _seed_points(
     ranges: Sequence[object],
     chart: _Chart,
     radius: float,
-    numpy: object,
 ) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = [(0.0, 0.0)]
     for observation in ranges:
@@ -994,10 +977,10 @@ def _seed_points(
             _exact_bearing_range_seeds(bearings[0], ranges[0], chart)
         )
 
-    bearing_seed = _linear_bearing_seed(bearings, chart, radius, numpy)
+    bearing_seed = _linear_bearing_seed(bearings, chart, radius)
     if bearing_seed is not None:
         points.append(bearing_seed)
-    range_seed = _linear_range_seed(ranges, chart, numpy)
+    range_seed = _linear_range_seed(ranges, chart)
     if range_seed is not None:
         points.append(range_seed)
 
@@ -1091,16 +1074,15 @@ def _metrics(
 def _centered_diagnostics(
     specs: Sequence[_Spec],
     position: Position,
-    numpy: object,
 ) -> tuple[object, int, float | None]:
-    problem = _Problem(specs, _Chart(position), numpy)
-    coordinates = numpy.asarray((0.0, 0.0), dtype=float)  # type: ignore[attr-defined]
+    problem = _Problem(specs, _Chart(position))
+    coordinates = numpy.asarray((0.0, 0.0), dtype=float)
     jacobian = problem.jacobian(coordinates)
-    rank, condition = _rank_condition(jacobian, numpy)
+    rank, condition = _rank_condition(jacobian)
     return jacobian, rank, condition
 
 
-def _uncertainty(jacobian: object, numpy: object) -> object | None:
+def _uncertainty(jacobian: object) -> object | None:
     from .fix import (
         FixUncertainty,
         _covariance_axis_from_east,
@@ -1109,7 +1091,7 @@ def _uncertainty(jacobian: object, numpy: object) -> object | None:
 
     try:
         information = jacobian.T @ jacobian  # type: ignore[operator]
-        covariance = numpy.linalg.inv(information)  # type: ignore[attr-defined]
+        covariance = numpy.linalg.inv(information)
         east_variance = float(covariance[0, 0])
         east_north = float((covariance[0, 1] + covariance[1, 0]) / 2.0)
         north_variance = float(covariance[1, 1])
@@ -1205,8 +1187,6 @@ def solve_fix(
     search_center: object,
     search_radius: object,
     max_iterations: object,
-    numpy: object,
-    least_squares: object,
 ) -> object:
     """Solve a bounded regional WGS84 fix with deterministic multistart.
 
@@ -1247,8 +1227,6 @@ def solve_fix(
         candidates = two_range_candidates(
             range_values[0],
             range_values[1],
-            numpy=numpy,
-            least_squares=least_squares,
         )
         in_domain = tuple(
             position
@@ -1298,8 +1276,6 @@ def solve_fix(
             bearing_values[1],
             search_center=center,
             search_radius=radius,
-            numpy=numpy,
-            least_squares=least_squares,
         )
         if candidates.status is CandidateStatus.DEGENERATE:
             return _failed_result(
@@ -1337,7 +1313,6 @@ def solve_fix(
         range_values,
         chart,
         radius,
-        numpy,
     )
     generated_seeds = [
         seed
@@ -1366,8 +1341,6 @@ def solve_fix(
             seed,
             bound=optimizer_bound,
             max_iterations=iteration_limit,
-            numpy=numpy,
-            least_squares=least_squares,
         )
         if run is None:
             continue
@@ -1450,7 +1423,6 @@ def solve_fix(
     centered_jacobian, rank, condition = _centered_diagnostics(
         specs,
         best.position,
-        numpy,
     )
     if rank < 2 or condition is None or condition > _DEGENERATE_CONDITION:
         return _failed_result(
@@ -1472,7 +1444,7 @@ def solve_fix(
         warnings.append("residuals are large relative to stated uncertainties")
     if _distance(center, best.position) > radius * _DOMAIN_EDGE_FRACTION:
         warnings.append("fix lies near the edge of the circular search region")
-    uncertainty = _uncertainty(centered_jacobian, numpy)
+    uncertainty = _uncertainty(centered_jacobian)
     if uncertainty is None:
         warnings.append("linearized covariance could not be computed")
     elif (

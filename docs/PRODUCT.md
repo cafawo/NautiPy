@@ -4,7 +4,8 @@
 
 **NautiPy turns real-world coordinate input into validated positions and makes common WGS84 navigation calculations easy through a small Python API.**
 
-The package should be useful within a minute of installation, clear when input is ambiguous, deterministic, offline, and light enough for ordinary scripts.
+The package should be useful within a minute of installation, clear when input
+is ambiguous, deterministic, offline, and complete after one ordinary install.
 
 ## Why this package should exist
 
@@ -14,10 +15,10 @@ Python already has strong geodesic, projection, and GIS libraries. NautiPy shoul
 2. detect, validate, inspect, and convert those forms;
 3. represent positions consistently;
 4. calculate the navigation quantities users commonly need; and
-5. optionally estimate a position from bearings and ranges with diagnostics.
+5. estimate a position from bearings and ranges with diagnostics.
 
 Coordinate usability is the first differentiator. Diagnosed position fixing is
-the optional advanced differentiator. General GIS is not the goal.
+the advanced differentiator. General GIS is not the goal.
 
 ## Clean start
 
@@ -59,11 +60,17 @@ parse_position("8, 50", order="auto")    # raises an ambiguity error
 
 Errors should name the ambiguity and show the argument or syntax that resolves it.
 
-### Lightweight by default
+### One complete installation
 
-The coordinate layer uses only the Python standard library. The normal
-navigation package uses one focused pure-Python dependency for correct WGS84
-geodesics. Scientific packages belong only in the optional `fix` extra.
+`python -m pip install nautipy` installs the complete package. GeographicLib
+provides correct WGS84 geodesics, while NumPy and SciPy provide the mature
+numerical foundation for bearing/range fixes. These are direct runtime
+dependencies rather than user-selected extras.
+
+The coordinate implementation still uses only the Python standard library.
+Coordinate-only module use must not import GeographicLib, NumPy, SciPy, or the
+fix solver, so implementation boundaries remain clear without creating a
+second installation mode.
 
 ### Small public surface
 
@@ -128,17 +135,15 @@ degrees_true = initial_bearing(start, end)
 
 Distances are metres and bearings are true degrees by default. Display units are converted at the API boundary.
 
-### Solve an optional position fix
-
-The advanced solver is an optional capability:
-
-```bash
-python -m pip install "nautipy[fix]"
-```
+### Solve a position fix
 
 ```python
-from nautipy import Position
-from nautipy.fix import BearingObservation, RangeObservation, solve_fix
+from nautipy import (
+    BearingObservation,
+    Position,
+    RangeObservation,
+    solve_fix,
+)
 
 references = (
     Position(50.116135, 8.670277),
@@ -177,19 +182,20 @@ The initial useful release should ship:
 - WGS84 distance, initial/final bearing, destination, and interpolation;
 - lightweight GeoJSON Point/FeatureCollection interchange;
 - a small `argparse` CLI for conversion and inspection;
-- an isolated optional bearing/range fix extra when its numerical acceptance
-  criteria pass;
+- an integrated bearing/range fix engine satisfying its numerical acceptance
+  criteria;
 - wheel and source distributions on PyPI;
 - automated tested releases from semantic-version tags; and
 - a conda-forge staged-recipes submission after the PyPI release.
 
-The normal 0.1.0 installation remains the focused coordinate-and-navigation
-package. The nonlinear fix solver is isolated behind an optional extra and
-must not make the default installation heavier.
+The 0.1.0 installation includes coordinates, navigation, interchange, CLI,
+and the nonlinear fix solver. The complete coordinate, navigation, and fixing
+APIs are available from top-level `nautipy` after one ordinary installation;
+specialized GeoJSON functions remain grouped in `nautipy.geojson`.
 
-## Optional fix capability
+## Position-fix capability
 
-The optional module provides:
+The fix engine provides:
 
 - two-bearing and two-range candidate geometry;
 - overdetermined bearing-only fixes;
@@ -200,7 +206,10 @@ The optional module provides:
 - convergence and geometry diagnostics; and
 - covariance or confidence information where valid.
 
-NumPy and SciPy are acceptable only inside this optional capability. They are not dependencies of coordinate parsing or ordinary navigation.
+NumPy and SciPy are normal package dependencies used directly by this
+capability. Coordinate parsing, formatting, GeoJSON, and CLI plumbing remain
+standard-library implementations and must not import the scientific stack
+during coordinate-only module use.
 
 The detailed contract is [FIXES.md](FIXES.md). It fixes bearing direction,
 units, regional search bounds, result status, residual signs, ambiguity, and
@@ -245,7 +254,9 @@ NautiPy is succeeding when:
 - ordinary coordinate input works without users identifying its notation;
 - ambiguous input fails with a concrete resolution;
 - the core API is small enough to understand from examples;
-- a normal installation has no broad scientific or GIS dependency stack;
+- one ordinary installation provides every documented feature;
+- coordinate-only module use remains isolated from geodesic and scientific
+  imports;
 - navigation results match independent WGS84 references;
 - built artifacts install and work outside the repository checkout;
 - releases are automated but intentional; and

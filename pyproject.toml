@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nautipy"
 version = "0.1.0"
-description = "Coordinate conversion and WGS84 navigation for Python"
+description = "Coordinate conversion, WGS84 navigation, and position fixing"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 license = "MIT"
@@ -31,10 +31,6 @@ classifiers = [
 ]
 dependencies = [
   "geographiclib>=2.1",
-]
-
-[project.optional-dependencies]
-fix = [
   "numpy>=1.23.5",
   "scipy>=1.14.1",
 ]

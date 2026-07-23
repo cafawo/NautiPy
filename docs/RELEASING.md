@@ -71,8 +71,10 @@ CI responsibilities:
 4. Add small Linux, macOS, and Windows smoke coverage where practical.
 5. Build wheel and sdist.
 6. Inspect package metadata with an appropriate PyPA tool.
-7. Install the wheel in a clean environment outside the checkout.
-8. Run import and core-function smoke tests against that wheel.
+7. Install the wheel and sdist separately in clean environments outside the
+   checkout.
+8. Run top-level coordinate, navigation, GeoJSON, CLI, and fix smoke tests
+   against each installed artifact.
 9. Upload artifacts for inspection without publishing them.
 
 Keep the matrix aligned with the package's actual Python support. Testing unsupported or pre-release Python versions may be informative but must not block releases unless project policy says so.
@@ -111,9 +113,9 @@ Run the release-critical test suite on the tagged source.
 ### 4. Test artifacts
 
 - download the build artifact;
-- install the wheel in a fresh environment;
-- run import plus coordinate/navigation smoke tests;
-- optionally build and install from the sdist; and
+- install the wheel and sdist separately in fresh environments;
+- run top-level coordinate, navigation, GeoJSON, CLI, and fix smoke tests
+  against both installations; and
 - fail before publication on any error.
 
 ### 5. Publish to PyPI
@@ -221,9 +223,11 @@ After stable `0.1.0` is on PyPI:
 1. Fork `conda-forge/staged-recipes`.
 2. Add a recipe using the currently accepted staged-recipes format.
 3. Build from the exact PyPI sdist.
-4. Include the sdist checksum, license file, runtime dependencies, Python constraint, homepage, and source repository.
+4. Include the sdist checksum, license file, GeographicLib, NumPy, and SciPy
+   runtime dependencies, Python constraint, homepage, and source repository.
 5. Use `noarch: python` when the distribution is pure Python and current conda-forge rules permit it.
-6. Add import and small coordinate/navigation functional tests.
+6. Add import and small coordinate, navigation, and fix functional tests using
+   the top-level API.
 7. Open a staged-recipes pull request and address review feedback.
 
 Official references:

@@ -421,7 +421,7 @@ class NearestPositionTests(unittest.TestCase):
 
 
 class ImportBoundaryTests(unittest.TestCase):
-    def test_top_level_coordinate_use_does_not_load_geographiclib(self) -> None:
+    def test_top_level_coordinate_use_does_not_load_runtime_backends(self) -> None:
         repository = Path(__file__).resolve().parents[1]
         environment = os.environ.copy()
         source = str(repository / "src")
@@ -431,13 +431,22 @@ class ImportBoundaryTests(unittest.TestCase):
         )
         code = (
             "import sys; import nautipy; "
+            "scientific = ('numpy', 'scipy'); "
             "assert 'nautipy.geodesic' not in sys.modules; "
+            "assert 'nautipy._fix_solver' not in sys.modules; "
             "assert not any(name == 'geographiclib' or "
             "name.startswith('geographiclib.') for name in sys.modules); "
+            "assert all(not any(name == package or "
+            "name.startswith(package + '.') for name in sys.modules) "
+            "for package in scientific); "
             "nautipy.parse_position('50.12257, 8.66570'); "
             "assert 'nautipy.geodesic' not in sys.modules; "
+            "assert 'nautipy._fix_solver' not in sys.modules; "
             "assert not any(name == 'geographiclib' or "
-            "name.startswith('geographiclib.') for name in sys.modules)"
+            "name.startswith('geographiclib.') for name in sys.modules); "
+            "assert all(not any(name == package or "
+            "name.startswith(package + '.') for name in sys.modules) "
+            "for package in scientific)"
         )
         with TemporaryDirectory(prefix="nautipy-import-") as directory:
             result = subprocess.run(

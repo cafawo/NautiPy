@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+import re
 import subprocess
 from tempfile import TemporaryDirectory
 import unittest
@@ -445,10 +446,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("if: ${{ always() }}", aggregate)
         for job in (
             "test",
-            "fix-test",
-            "fix-minimum-dependencies",
+            "minimum-dependencies",
             "cross-platform-smoke",
-            "cross-platform-fix-smoke",
             "build",
         ):
             with self.subTest(job=job):
@@ -465,7 +464,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             )
 
         text = workflow.read_text(encoding="utf-8")
-        minimum_job = text.split("  fix-minimum-dependencies:\n", 1)[1]
+        minimum_job = text.split("  minimum-dependencies:\n", 1)[1]
         minimum_job = minimum_job.split("\n  cross-platform-smoke:", 1)[0]
         for requirement in (
             "geographiclib==2.1",
@@ -474,6 +473,51 @@ class ReleaseWorkflowTests(unittest.TestCase):
         ):
             with self.subTest(requirement=requirement):
                 self.assertIn(f'"{requirement}"', minimum_job)
+
+    def test_one_package_workflows_have_no_optional_fix_path(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        paths = (
+            root / ".github/workflows/ci.yml",
+            root / ".github/workflows/release.yml",
+            root / "scripts/smoke_test_artifact.py",
+        )
+        if any(not path.is_file() for path in paths):
+            self.skipTest(
+                "repository workflows and scripts are not shipped in the "
+                "source archive"
+            )
+
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+        self.assertNotIn(".[fix]", combined)
+        self.assertNotIn("--fix", combined)
+        self.assertNotIn("fix-test:", combined)
+        self.assertNotIn("cross-platform-fix-smoke:", combined)
+        self.assertIn("solve_fix", combined)
+
+    def test_project_declares_one_complete_runtime_dependency_set(self) -> None:
+        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        if not pyproject.is_file():
+            self.skipTest("project metadata is not shipped in the source archive")
+
+        text = pyproject.read_text(encoding="utf-8")
+        dependency_match = re.search(
+            r"(?ms)^dependencies\s*=\s*\[(.*?)^\]",
+            text,
+        )
+        if dependency_match is None:
+            self.fail("pyproject.toml has no project dependency list")
+        requirements = sorted(
+            re.findall(r'"([^"]+)"', dependency_match.group(1))
+        )
+        self.assertEqual(
+            requirements,
+            [
+                "geographiclib>=2.1",
+                "numpy>=1.23.5",
+                "scipy>=1.14.1",
+            ],
+        )
+        self.assertNotIn("[project.optional-dependencies]", text)
 
     def test_github_release_has_explicit_repository_context(self) -> None:
         workflow = (

@@ -1,6 +1,8 @@
 # NautiPy implementation roadmap
 
-This roadmap builds the smallest useful package first, then adds capability without making the default installation heavy.
+This roadmap builds the smallest useful package first, then integrates the
+complete coordinate, navigation, and position-fix experience into one
+installation.
 
 Checkboxes describe repository state. Mark an item complete only when its acceptance criteria pass on the default branch.
 
@@ -31,20 +33,20 @@ A polished coordinate and WGS84 navigation package:
 - immutable `Position` values;
 - geodesic distance, bearings, destination, and interpolation;
 - lightweight GeoJSON and CLI support;
-- an isolated optional `fix` extra when Milestone 4 acceptance passes before
-  the release tag;
+- an integrated bearing/range fix engine satisfying Milestone 4 acceptance
+  before the release tag;
 - pip/PyPI release automation; and
 - conda-forge submission.
 
 ### Later 0.x release
 
-Refine the pre-1.0 coordinate, navigation, and optional fix APIs from real use,
+Refine the pre-1.0 coordinate, navigation, and fix APIs from real use,
 including numerical tolerances and diagnostics, without expanding into general
 GIS.
 
-The optional solver does not change the normal dependency set. This sequencing
-protects the main value and keeps `pip install nautipy` light even when the
-extra ships in the same distribution.
+`pip install nautipy` provides every shipped feature. GeographicLib, NumPy,
+and SciPy are normal runtime dependencies; module boundaries keep coordinate
+implementation and coordinate-only imports isolated from them.
 
 ---
 
@@ -105,7 +107,8 @@ All commands succeed in a fresh virtual environment after installing the non-run
 
 The built wheel:
 
-- installs without pulling runtime dependencies;
+- installs successfully in a clean environment with metadata matching this
+  milestone's declared dependencies;
 - imports outside the source checkout;
 - parses and formats a decimal-degree position; and
 - exposes no legacy aliases.
@@ -149,7 +152,9 @@ Coordinate modules remain standard-library-only. Importing or using them must no
 - Material ambiguity raises an error showing how to resolve it.
 - Parse-format-parse round trips pass for every output format.
 - Boundary, malformed, conflicting-sign, extra-field, decimal-comma, and Unicode cases are tested.
-- The wheel remains pure Python and coordinate use has no runtime dependency.
+- The wheel remains pure Python, and coordinate-only use remains
+  standard-library-only without importing later geodesic or scientific
+  layers.
 
 ---
 
@@ -161,8 +166,11 @@ Coordinate modules remain standard-library-only. Importing or using them must no
 
 - [ ] Evaluate the current maintained GeographicLib Python package against the required Python range.
 - [ ] Record the choice in the pull request.
-- [ ] Add one runtime dependency only after tests demonstrate its use for the public API.
-- [ ] Do not add pyproj, Shapely, NumPy, or SciPy to the normal installation.
+- [ ] Add GeographicLib only after tests demonstrate its use for the public
+  navigation API.
+- [ ] Do not add pyproj, Shapely, or another broad GIS dependency.
+- [ ] Keep this milestone's navigation implementation independent of the
+  NumPy/SciPy fix engine added in Milestone 4.
 
 ### Public API
 
@@ -186,14 +194,18 @@ Coordinate modules remain standard-library-only. Importing or using them must no
 
 - Navigation results match documented references within justified tolerances.
 - Coordinate-only modules still import without loading the geodesic implementation.
-- The normal installation has at most one runtime dependency.
+- At this milestone checkpoint, GeographicLib is the only implemented
+  feature's runtime dependency; Milestone 4 later adds NumPy and SciPy to the
+  same complete installation.
 - No spherical approximation is presented as the WGS84 default.
 
 ---
 
-## Milestone 3 — Interchange, CLI, and first public release
+## Milestone 3 — Interchange, CLI, and release foundation
 
-**Goal:** finish the practical 0.1.0 experience and publish it reproducibly.
+**Goal:** finish the practical user experience and prepare reproducible
+publication. The first public release waits for the integrated fix engine in
+Milestone 4.
 
 ### GeoJSON
 
@@ -232,32 +244,41 @@ nautipy inspect "+50.12257+008.66570/"
 - [ ] Create a GitHub Release from the same artifacts.
 - [ ] Keep pull-request workflows unable to publish.
 
-### Distribution
+### Distribution preparation
 
-- [ ] Release `0.1.0` on PyPI after name ownership and trusted-publisher setup are confirmed.
-- [ ] Verify `pip install nautipy` in a clean environment.
-- [ ] Submit a conda-forge staged-recipes recipe built from the PyPI sdist.
-- [ ] After acceptance, maintain conda releases through the generated feedstock and bot PRs.
+- [ ] Confirm PyPI name ownership and trusted-publisher setup.
+- [ ] Prepare clean-environment `pip install nautipy` verification for the
+  final artifact.
+- [ ] Prepare the conda-forge recipe and review process; submission waits for
+  the post-Milestone-4 PyPI sdist.
 
 ### Acceptance criteria
 
-- A tagged release publishes only artifacts already tested by CI.
-- `pip install nautipy` provides the complete coordinate and navigation API.
+- The release workflow can publish only artifacts already tested by CI.
+- `pip install nautipy` provides every feature implemented through this
+  milestone; the integrated fix engine joins the same installation in
+  Milestone 4.
 - `conda install -c conda-forge nautipy` works after feedstock acceptance.
-- The default installation contains no scientific or GIS framework stack.
+- The distribution contains no general GIS framework stack.
+- No `0.1.0` release tag is created until Milestone 4 also passes.
 
 ---
 
-## Milestone 4 — Optional bearing/range fix engine
+## Milestone 4 — Integrated bearing/range fix engine
 
-**Goal:** add the advanced differentiator without changing the lightweight normal installation.
+**Goal:** add the advanced differentiator to the one complete NautiPy
+installation and top-level API.
 
 ### Packaging
 
-- [ ] Add a `fix` optional extra containing only the required scientific dependencies.
-- [ ] Ensure `pip install nautipy` remains usable without NumPy or SciPy.
-- [ ] Provide one clear missing-extra error containing `pip install "nautipy[fix]"`.
-- [ ] Keep optional imports out of coordinate and geodesic module import paths.
+- [ ] Add NumPy and SciPy as normal runtime dependencies used directly by the
+  fix engine.
+- [ ] Ensure `pip install nautipy` provides coordinate, navigation,
+  interchange, CLI, and fixing functionality without extras.
+- [ ] Export all fix observations, results, statuses, candidate helpers, and
+  `solve_fix` from the top-level `nautipy` namespace.
+- [ ] Keep GeographicLib, NumPy, SciPy, and the fix solver out of
+  coordinate-only module import paths.
 
 ### Models
 
@@ -283,7 +304,17 @@ nautipy inspect "+50.12257+008.66570/"
 - Independent reference cases match within documented tolerances.
 - Weighting affects solutions in the expected direction.
 - Degenerate geometry never returns an unexplained plausible-looking fix.
-- Normal coordinate/navigation installations and tests pass without the optional dependencies installed.
+- Plain-install artifact tests exercise coordinate, navigation, and fixing
+  through top-level imports.
+- The exact minimum GeographicLib, NumPy, and SciPy versions pass the complete
+  supported test suite.
+- Coordinate-only module use does not import the geodesic or scientific
+  implementation layers.
+- The tested wheel and sdist are ready for the intentional `0.1.0` tag and
+  publication workflow defined in Milestone 3.
+- After the PyPI release, submit the conda-forge staged-recipes recipe from
+  that exact sdist; after acceptance, maintain releases through the generated
+  feedstock and bot pull requests.
 
 ---
 
@@ -295,7 +326,7 @@ nautipy inspect "+50.12257+008.66570/"
 - [ ] Remove accidental public internals.
 - [ ] Resolve known parser ambiguities with documented behavior.
 - [ ] Review numerical tolerances against the reference corpus.
-- [ ] Decide whether the optional fix API is mature enough for the 1.0 contract.
+- [ ] Decide whether the fix API is mature enough for the 1.0 contract.
 - [ ] Publish API stability and supported-Python policies.
 - [ ] Confirm PyPI and conda-forge metadata agree.
 
@@ -312,7 +343,8 @@ Version 1.0 is ready when the documented API is coherent, tested from built arti
 5. **Geodesic dependency and API:** WGS84 inverse/direct calculations and references.
 6. **Interchange and CLI:** GeoJSON collections plus `convert` and `inspect` commands.
 7. **Release automation:** artifact testing, PyPI Trusted Publishing, and GitHub Release.
-8. **Conda-forge submission:** staged-recipes after the stable PyPI release.
-9. **Optional fix extra:** observation models, candidate geometry, solver, and diagnostics.
+8. **Integrated fix engine:** runtime dependencies, top-level models,
+   candidate geometry, solver, and diagnostics.
+9. **Conda-forge submission:** staged-recipes after the stable PyPI release.
 
 Each pull request should leave the package installable and demonstrably more useful. None should add historical compatibility code.

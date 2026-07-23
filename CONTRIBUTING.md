@@ -27,12 +27,9 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
-To develop and run the optional fix engine tests, install its isolated extra:
-
-```bash
-python -m pip install -e ".[fix]"
-python -m unittest discover -s tests -v
-```
+The editable install includes GeographicLib, NumPy, and SciPy and runs the
+complete coordinate, navigation, and fix suite. There is no second
+installation mode.
 
 To build distributions:
 
@@ -55,13 +52,15 @@ A feature should strengthen one of these workflows:
 2. inspect or convert coordinate formats;
 3. calculate WGS84 navigation values;
 4. exchange positions through lightweight formats; or
-5. optionally estimate a position from bearings and ranges.
+5. estimate a position from bearings and ranges.
 
 Features outside this scope need an explicit product-direction decision before implementation.
 
 ## Pull requests
 
-Keep each pull request a working vertical slice. Packaging, coordinate formats, geodesics, release automation, and the optional fix engine should normally remain separate.
+Keep each pull request a working vertical slice. Packaging, coordinate formats,
+geodesics, release automation, and the fix engine should normally remain
+separate.
 
 A useful pull request description states:
 
@@ -69,7 +68,7 @@ A useful pull request description states:
 - the observable behavior;
 - examples or reference data;
 - tests added;
-- runtime and optional dependency effects;
+- runtime dependency effects;
 - numerical assumptions and tolerances; and
 - known limitations.
 
@@ -134,15 +133,18 @@ Runtime dependencies carry long-term installation and support cost.
 The target architecture is:
 
 - coordinate parsing, formatting, GeoJSON, CLI, and models: standard library;
-- normal navigation: at most one focused pure-Python WGS84 dependency;
-- advanced fixing: NumPy and SciPy only in an optional `fix` extra.
+- navigation: GeographicLib for mature pure-Python WGS84 calculations;
+- advanced fixing: NumPy and SciPy for numerical arrays, linear algebra, and
+  nonlinear least squares; and
+- distribution: all three libraries are normal runtime dependencies so one
+  installation provides every feature.
 
 Before adding a dependency, document:
 
 1. the shipped feature that needs it;
 2. the correctness or maintenance risk it removes;
 3. why the standard library or an existing dependency is insufficient;
-4. whether it can be isolated in an optional extra;
+4. whether its imports can remain isolated from coordinate-only use;
 5. its Python and platform support; and
 6. its import impact on coordinate-only use.
 
@@ -177,8 +179,9 @@ Coordinate modules must remain usable without importing geodesic or scientific p
   known reference; do not use a reciprocal `+ 180°` shortcut on WGS84.
 - Optimize fixes in local metre coordinates and evaluate every prediction with
   the WGS84 geodesic backend, not raw latitude/longitude least squares.
-- Keep NumPy, SciPy arrays, and optimizer results behind `nautipy.fix` result
-  models, and keep their imports out of ordinary package paths.
+- Keep NumPy/SciPy arrays and optimizer results behind NautiPy result models,
+  expose the complete fix API from `nautipy`, and keep scientific imports out
+  of coordinate-only module paths.
 - Never round intermediate values for display.
 
 ## Documentation

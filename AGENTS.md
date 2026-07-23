@@ -36,7 +36,8 @@ Its value is, in order:
 1. accept coordinates in the forms people actually paste, type, or receive from devices;
 2. detect, validate, inspect, and convert those formats safely;
 3. provide a small WGS84 navigation API for distance, bearing, destination, and interpolation; and
-4. later provide position fixes from bearings and ranges without forcing scientific dependencies on every user.
+4. provide diagnosed position fixes from bearings and ranges through the same
+   installation and top-level API.
 
 NautiPy is not a general GIS framework or a live-navigation system.
 
@@ -65,10 +66,13 @@ Prefer a coherent top-level API over feature count. Do not add plugin systems, b
 ### Dependency budget
 
 - Coordinate parsing, formatting, validation, data models, GeoJSON, and CLI plumbing use the Python standard library.
-- The initial package foundation has zero runtime dependencies.
-- The navigation layer may add one mature, pure-Python WGS84 geodesic dependency when that layer is implemented.
-- NumPy and SciPy may be added only in a later optional `fix` extra for overdetermined and mixed-observation solvers.
-- Optional dependencies must not be imported during ordinary coordinate use.
+- GeographicLib provides mature WGS84 geodesics.
+- NumPy and SciPy provide the numerical foundation for overdetermined and
+  mixed-observation solvers.
+- All three are normal runtime dependencies so `pip install nautipy` provides
+  every shipped feature.
+- Coordinate-only module use must not import GeographicLib, NumPy, SciPy, or
+  the fix solver, even though those dependencies are installed.
 - Do not add dependencies for validation, units, logging, argument parsing, JSON, formatting, HTTP, or development convenience.
 
 A dependency is admitted only when it removes substantial correctness or numerical risk and is used directly by a shipped feature.
@@ -89,7 +93,8 @@ Do not spend a pull request creating an empty package skeleton. Each milestone s
 - Do not silently swap latitude and longitude, wrap invalid input, or change units.
 - Do not perform network access during import or calculations.
 - Do not expose raw third-party result or optimizer objects as public API.
-- Keep optional functionality behind clear module and import boundaries.
+- Keep implementation modules behind clear import boundaries while exposing
+  the complete coordinate, navigation, and fixing API from `nautipy`.
 - Use standard-library `unittest` unless a concrete testing need justifies another dependency.
 - Avoid generated boilerplate and abstractions that have only one implementation.
 
@@ -117,18 +122,20 @@ A change is complete when:
 - no unnecessary dependency or compatibility layer was introduced; and
 - CI passes on the supported Python range.
 
-## First assignment
+## Current release priority
 
-Implement **Milestone 0: clean package and decimal-degree vertical slice** from [ROADMAP.md](ROADMAP.md).
+Preserve the integrated **Milestone 4** baseline while preparing the first
+public release:
 
-The first implementation pull request should:
+- one ordinary installation includes GeographicLib, NumPy, and SciPy;
+- the complete coordinate, navigation, and fixing API works through
+  top-level `nautipy` imports;
+- coordinate-only use does not load geodesic or scientific implementation
+  modules;
+- exact-minimum and normally resolved dependencies pass the complete suite;
+  and
+- the wheel and sdist pass clean-install, all-feature artifact tests.
 
-- remove the legacy packaging, implementation, and placeholder test rather than wrapping them;
-- add `pyproject.toml` and a `src/nautipy/` package;
-- implement the immutable `Position` model, core coordinate exceptions, decimal-degree parsing for text and structured pairs, and canonical decimal formatting;
-- define a small intentional top-level API;
-- use standard-library tests;
-- build and smoke-test the wheel and sdist; and
-- add pull-request CI.
-
-Do not implement legacy aliases, geodesics, DDM/DMS parsing, or the solver in that pull request.
+Do not reintroduce an optional fix extra, missing-extra compatibility path, or
+scientific-free installation variant. Select future work from the first
+genuinely incomplete roadmap item or a clearly scoped issue.
