@@ -43,6 +43,10 @@ Homepage = "https://github.com/cafawo/NautiPy"
 Documentation = "https://github.com/cafawo/NautiPy#readme"
 Issues = "https://github.com/cafawo/NautiPy/issues"
 Source = "https://github.com/cafawo/NautiPy"
+Changelog = "https://github.com/cafawo/NautiPy/blob/master/CHANGELOG.md"
+Contributing = "https://github.com/cafawo/NautiPy/blob/master/CONTRIBUTING.md"
+"Code of Conduct" = "https://github.com/cafawo/NautiPy/blob/master/CODE_OF_CONDUCT.md"
+Security = "https://github.com/cafawo/NautiPy/security/policy"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

@@ -1,30 +1,45 @@
-# WGS84 navigation specification
+# WGS84 navigation
 
-## Purpose
+## Overview
 
 NautiPy provides a small set of offline navigation primitives on the WGS84
 ellipsoid. Distances are metres. Bearings are true degrees clockwise from
-north. The package does not use a spherical approximation for these functions.
+north. These functions use GeographicLib rather than a spherical
+approximation.
 
-The public API is:
-
-```python
-from nautipy import (
-    InverseResult,
-    destination,
-    distance,
-    initial_bearing,
-    interpolate,
-    inverse,
-    nearest_position,
-)
+```text
+inverse(start, end) -> InverseResult
+distance(start, end) -> float
+initial_bearing(start, end) -> float
+destination(start, *, bearing, distance) -> Position
+interpolate(start, end, *, fraction=0.5) -> Position
+nearest_position(origin, candidates) -> Position
 ```
 
-Every location argument accepts a `Position` or any string, two-value
-sequence, named mapping, or GeoJSON Point accepted by `parse_position`.
-Navigation functions use the coordinate parser's default latitude/longitude
-order. Parse longitude-first or otherwise specialized input explicitly before
-passing it to navigation functions.
+Every location argument accepts a `Position` or a position-like string,
+two-value sequence, named mapping, or GeoJSON Point accepted by
+`parse_position`. Navigation functions use the parser's default
+latitude/longitude order. Parse longitude-first or otherwise specialized input
+explicitly before passing it to navigation functions.
+
+Invalid location inputs retain the applicable `CoordinateError` subtype.
+Invalid navigation scalars and undefined or unresolved calculations raise
+`NavigationError`.
+
+## Example
+
+```python
+from nautipy import destination, distance, inverse
+
+start = "50.12257, 8.66570"
+end = destination(start, bearing=90, distance=12_000)
+
+assert abs(distance(start, end) - 12_000) < 1e-6
+
+result = inverse(start, end)
+print(result.initial_bearing)
+print(result.final_bearing)
+```
 
 ## Inverse calculations
 
@@ -32,85 +47,69 @@ passing it to navigation functions.
 
 ```python
 result.distance         # metres
-result.initial_bearing  # true degrees in [0, 360), or None
-result.final_bearing    # true degrees in [0, 360), or None
+result.initial_bearing  # degrees in [0, 360), or None
+result.final_bearing    # degrees in [0, 360), or None
 ```
 
-The final bearing is the forward azimuth on arrival, continuing along the
+The final bearing is the forward azimuth on arrival while continuing along the
 geodesic. It is not the reciprocal bearing from the endpoint back to the
-start. `distance(start, end)` and `initial_bearing(start, end)` are concise
-wrappers around the same calculation.
+start. `distance` and `initial_bearing` are concise wrappers around the same
+inverse calculation.
 
 Coincident physical positions have distance `0.0` and no unique direction.
-Their inverse bearings are therefore `None`, and `initial_bearing` raises
-`NavigationError`. Where distinct endpoints admit multiple equally short
-geodesics, NautiPy returns GeographicLib's deterministic canonical solution.
-Distinct inputs below the backend's numerical distance resolution raise
-`NavigationError` rather than being reported as coincident.
+Their inverse bearings are `None`, and `initial_bearing` raises
+`NavigationError`. Distinct inputs too close for the WGS84 calculation to
+resolve also raise `NavigationError` rather than being reported as coincident.
 
-## Direct calculations
+Where distinct endpoints admit more than one equally short geodesic, NautiPy
+returns GeographicLib's deterministic canonical solution.
 
-`destination(start, bearing=..., distance=...)` returns the endpoint of a
-WGS84 geodesic. Distance must be a finite, non-negative real number. Bearing
-may be any finite real number and is normalized modulo 360 degrees. A zero
-distance returns the validated start unchanged. Distances must be representable
-as binary64 values, and positive distances below `1e-7` metres are rejected
-because they cannot produce a dependable output coordinate. Exact integer,
-`Decimal`, and `Fraction` bearings are reduced before float conversion, so even
-very large bearings retain their correct direction. Residual angles smaller
-than binary64 can represent normalize to zero degrees.
+## Destination
 
-Generated longitudes use the normalized `[-180, 180]` range. NautiPy does not
-wrap out-of-range user coordinates during parsing.
+`destination(start, bearing=..., distance=...)` returns the endpoint of a WGS84
+geodesic.
+
+- Distance is a finite, non-negative real number in metres.
+- Bearing is any finite real number and is normalized modulo 360 degrees.
+- Zero distance returns the validated start unchanged.
+- Positive distances below `1e-7` metres are rejected because they cannot
+  produce a dependable output coordinate.
+
+Exact integer, `Decimal`, and `Fraction` bearings are reduced before float
+conversion, so very large values retain their direction where representable.
+Generated longitudes use `[-180, 180]`; parser input is never silently wrapped.
 
 ## Interpolation
 
 `interpolate(start, end, fraction=0.5)` follows the selected shortest WGS84
-geodesic. Fraction must be finite and in `[0, 1]`. Zero and one return the
-validated endpoints exactly; the default returns the geodesic midpoint.
-Interpolation does not extrapolate beyond the segment. Non-boundary fractions
-that collapse to zero or one in binary64 are rejected. Interior results must
-remain at least `1e-7` metres from both endpoints so their coordinates are
-numerically resolved.
+geodesic.
+
+- Fraction is finite and in `[0, 1]`.
+- Zero and one return the validated endpoints exactly.
+- The default returns the geodesic midpoint.
+- Interpolation never extrapolates beyond the segment.
+- An interior result must remain at least `1e-7` metres from each endpoint.
+
+A non-boundary fraction that collapses numerically to an endpoint raises
+`NavigationError`.
 
 ## Nearest position
 
 `nearest_position(origin, candidates)` performs a single-pass linear search
-over an ordinary iterable and returns the parsed `Position` with the shortest
-WGS84 distance. An empty iterable raises `NavigationError`. Exact-distance ties
-select the first candidate, and invalid candidates are not silently skipped.
+over an ordinary iterable. It returns the parsed candidate with the shortest
+WGS84 distance.
 
-## Dependency decision
+An empty iterable raises `NavigationError`. Exact-distance ties select the
+first candidate. Invalid candidates are not silently skipped.
 
-Navigation uses
-[GeographicLib 2.1 or newer](https://pypi.org/project/geographiclib/) as the
-navigation layer's focused dependency and one of NautiPy's three direct
-runtime dependencies. GeographicLib is a maintained, MIT-licensed, pure-Python
-implementation of robust ellipsoidal direct, inverse, and geodesic-line
-algorithms. Version 2.1 declares Python 3.7 and newer and ships a
-platform-independent wheel with no transitive dependencies. NumPy and SciPy
-serve the integrated fix engine rather than navigation calculations.
+## Numerical meaning
 
-The backend is imported only when a navigation calculation is requested.
-Importing `nautipy`, parsing coordinates, and formatting coordinates do not
-load GeographicLib. Third-party dictionaries and line objects never appear in
-the public API.
+Navigation results are deterministic calculations from the supplied
+coordinates. Numerical regression tolerances are not measurement uncertainty
+and do not imply that source coordinates are accurate to the same scale.
 
-Reference tests use GeographicLib's independently generated WGS84
-[geodesic test data](https://geographiclib.sourceforge.io/C++/doc/geodesic.html#testgeod),
-including short, near-antipodal, high-latitude, and antimeridian cases.
-
-## Reference tolerances
-
-For the frozen high-precision GeodTest cases, inverse distances must agree
-within 1 micrometre and endpoint bearings within `5e-10` degrees. Replaying an
-inverse result through `destination` must recover each endpoint within
-`1e-12` degrees per axis. Published examples rounded to five decimal places,
-such as the dateline waypoint, use the corresponding half-unit tolerance of
-`5e-6` degrees.
-
-These are regression thresholds for the current reference corpus, not
-uncertainty estimates or guarantees that user inputs are accurate to those
-scales. Display rounding and input precision remain separate concerns.
+GeographicLib is imported only when a navigation calculation is requested.
+Navigation does not load NumPy or SciPy. Dependency and import policy is
+defined in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 NautiPy is a calculation library, not certified navigation equipment.

@@ -1,262 +1,253 @@
-# Release and distribution plan
+# Releasing NautiPy
 
-## Objectives
+This is the maintainer runbook for publishing NautiPy. Pull requests and
+default-branch pushes validate the package but never publish it. An intentional
+release tag starts `.github/workflows/release.yml`.
 
-NautiPy should publish through a small, intentional, repeatable process:
+Maintainers need ordinary Python and Git locally. The GitHub CLI is not needed
+for local preparation or tagging. The hosted release workflow uses its own
+preinstalled `gh` command only to create the GitHub Release after PyPI
+publication succeeds.
 
-- pull requests prove that source and built artifacts work;
-- a maintainer chooses a version and creates a semantic-version tag;
-- GitHub Actions builds the wheel and sdist once;
-- the exact tested artifacts are published to PyPI;
-- authentication uses short-lived OpenID Connect identity rather than a stored PyPI token; and
-- conda-forge distribution follows staged-recipes and the generated feedstock.
+## Release contract
 
-Automation performs a release; it does not decide that a release is ready.
+NautiPy uses a deliberately small version syntax:
 
-## Initial version
+- stable: `X.Y.Z`, tagged as `vX.Y.Z`;
+- alpha: `X.Y.ZaN`, tagged as `vX.Y.ZaN`;
+- beta: `X.Y.ZbN`, tagged as `vX.Y.ZbN`; and
+- release candidate: `X.Y.ZrcN`, tagged as `vX.Y.ZrcN`.
 
-The first supported public package is `0.1.0`.
+Each numeric component and prerelease number is a non-negative integer without
+unnecessary leading zeroes. Forms such as `v1.2`, `v1.2.3-rc.1`,
+`v1.2.3.post1`, development versions, and local versions are not accepted by
+the release validator.
 
-The older repository experiment was not a supported distribution and does not
-require version continuity, compatibility wrappers, or migration notes. From
-`0.1.0` until `1.0.0`, clearly documented breaking API improvements belong in
-minor releases; patch releases should remain compatible. At and after `1.0.0`,
-documented APIs follow semantic versioning.
+For every release:
 
-The compatibility and supported-Python rules are defined in
-[SUPPORT.md](SUPPORT.md). The Python range itself remains authoritative only
-in `pyproject.toml`.
+- `[project].version` in `pyproject.toml` is the version without `v`;
+- the annotated Git tag is `v` plus that exact version;
+- `CHANGELOG.md` contains exactly one nonempty
+  `## X.Y.Z - YYYY-MM-DD` section for it;
+- the tagged commit is the checked-out commit and is reachable from the
+  repository's default branch;
+- that version does not already exist on PyPI; and
+- the wheel and source distribution are built once, tested, and then passed
+  unchanged to PyPI and the GitHub Release.
 
-## Publish every intentional release tag
+The static project version, dated changelog section, and release tag are the
+sources of truth. Do not replace artifacts, move a pushed release tag, or reuse
+a version for different bytes.
 
-Do not deploy only major versions. Patch and minor releases carry fixes and features.
+Before `1.0.0`, documented breaking corrections belong in a minor release;
+patch releases should remain compatible. Starting with `1.0.0`, documented
+public APIs follow semantic versioning. The full compatibility policy is in
+[SUPPORT.md](SUPPORT.md).
 
-Accepted examples:
+## One-time external setup
 
-```text
-v0.1.0
-v0.1.1
-v0.2.0
-v1.0.0
-v2.0.0rc1
+These settings live on PyPI and GitHub and cannot be established by a repository
+commit:
+
+1. Confirm that the normalized PyPI project name `nautipy` is controlled by the
+   maintainers, or configure a pending Trusted Publisher for the first release.
+2. Configure this exact Trusted Publisher identity:
+
+   ```text
+   PyPI project: nautipy
+   GitHub owner: cafawo
+   GitHub repository: NautiPy
+   Workflow filename: release.yml
+   Environment: pypi
+   ```
+
+3. Create a protected GitHub environment named `pypi`. Restrict deployment to
+   release tags and require maintainer approval when appropriate.
+4. Protect the default branch and require the always-running `CI success` check.
+   Requiring only a dependent job is insufficient because it may be skipped
+   after an upstream failure.
+5. Allow the release workflow's narrowly scoped OIDC and GitHub Release
+   permissions. Do not add a stored PyPI token.
+6. Update the identity above if the repository owner, repository name, workflow
+   filename, or environment ever changes.
+
+TestPyPI is optional. Use it only for a specific check not already provided by
+the clean artifact tests.
+
+## Prepare the release pull request
+
+Make release preparation a focused pull request:
+
+1. Confirm that the target in [ROADMAP.md](../ROADMAP.md) is complete and the
+   default branch is green.
+2. Choose a version accepted by the syntax above and set it in
+   `pyproject.toml`.
+3. Move the reviewed entries from `## Unreleased` into one exact dated heading:
+
+   ```markdown
+   ## Unreleased
+
+   ## 0.1.0 - YYYY-MM-DD
+
+   ### Added
+
+   - Release note.
+   ```
+
+   Replace `YYYY-MM-DD` with the release date. Always leave a new
+   `## Unreleased` section at the top for subsequent work. Do not use brackets
+   around the version heading.
+4. Make README installation text publication-ready. The README is embedded in
+   the wheel and source distribution and becomes the PyPI project description,
+   so it cannot be corrected inside already-published artifacts. For the first
+   release, replace the pre-release banner and checkout-only default with
+   ordinary `pip install nautipy` instructions in the release commit. Do not
+   defer that transition until after publication.
+5. Run the normal source and package checks:
+
+   ```bash
+   python -m pip install -e .
+   python -m pip check
+   python -m unittest discover -s tests -v
+   python -m pip install build twine
+   python -m build
+   python -m twine check dist/*
+   ```
+
+6. Smoke-test both locally built artifacts:
+
+   ```bash
+   python scripts/smoke_test_artifact.py dist/nautipy-X.Y.Z-py3-none-any.whl
+   python scripts/smoke_test_artifact.py dist/nautipy-X.Y.Z.tar.gz
+   ```
+
+   Replace `X.Y.Z` with the project version. These local files are a rehearsal;
+   the release workflow rebuilds once from the eventual tagged commit and
+   publishes only its own tested artifacts.
+7. Validate the version, changelog, and read-only PyPI availability check:
+
+   ```bash
+   python scripts/release.py validate vX.Y.Z --check-pypi
+   ```
+
+   Replace `vX.Y.Z` with the intended tag. `--check-git` is intentionally
+   omitted until the annotated tag exists.
+8. Merge only after review and the required `CI success` check passes.
+
+## Create the release tag
+
+Tag the merged default-branch commit, not a pull-request branch:
+
+```bash
+git switch master
+git pull --ff-only origin master
+git status --short
+python scripts/release.py validate vX.Y.Z --check-pypi
+git tag -a vX.Y.Z -m "NautiPy X.Y.Z"
+python scripts/release.py validate vX.Y.Z --check-git --default-branch origin/master --check-pypi
+git push origin vX.Y.Z
 ```
 
-A workflow may trigger on `v*`, but an early validation job must reject invalid or mismatched versions. A merge to the default branch never publishes by itself.
+Replace `X.Y.Z` consistently. The second validation requires the annotated tag
+to point at `HEAD` and confirms that the commit is reachable from
+`origin/master`. `git status --short` must produce no output; do not create or
+push the tag from a dirty working tree or if any check fails.
 
-## Sources of truth
+Pushing the tag starts and authorizes the publication workflow. Publication
+occurs only when its gated PyPI job succeeds. A normal commit, pull request,
+merge, or branch push cannot publish a package.
 
-- Package version and metadata: `pyproject.toml`.
-- Human-facing release notes: `CHANGELOG.md`.
-- Release tag: `v` plus the exact project version.
-- Distributions: generated from the tagged commit.
+## What the release workflow does
 
-The release fails if these disagree. Keep a static version in `pyproject.toml` until dynamic versioning demonstrably removes more complexity than it adds.
-Each release uses one exact, dated, nonempty changelog heading such as
-`## 0.1.0 - 2026-07-22`; the text below that heading becomes the GitHub
-Release notes.
+The tag-triggered workflow performs these jobs in order:
 
-## Continuous integration
+1. **Validate release intent:** check the tag, static project version, dated
+   changelog entry, annotated-tag ancestry, and absence of that version on
+   PyPI.
+2. **Test release source:** run the complete suite on the oldest and newest
+   supported Python versions. Normal CI has already tested every supported
+   Python version, exact minimum dependencies, and cross-platform smoke cases.
+3. **Build release artifacts once:** create the wheel and source distribution,
+   run Twine checks, record SHA-256 hashes, and extract the matching changelog
+   section as release notes.
+4. **Test exact artifacts:** download the build output, verify its hashes,
+   install the wheel and source distribution separately in clean environments,
+   exercise representative coordinate, navigation, GeoJSON, CLI, and fixing
+   workflows and the intended top-level exports, and run `pip check`.
+5. **Publish tested artifacts:** use PyPI Trusted Publishing and short-lived
+   OpenID Connect identity. This job does not rebuild or use `skip-existing`.
+6. **Create the GitHub Release:** attach the same wheel, source distribution,
+   and checksum file and use the reviewed changelog section as release notes.
 
-Create `.github/workflows/ci.yml` for:
+Publishing jobs cannot run unless artifact tests succeed. Third-party actions
+are pinned to immutable commit SHAs, with Dependabot responsible for proposing
+updates.
 
-- pull requests;
-- pushes to the default branch; and
-- optional manual diagnostic runs.
+## Verify a successful release
 
-CI responsibilities:
+After the workflow completes:
 
-1. Install the package with ordinary `pip` commands.
-2. Run `python -m unittest discover -s tests -v`.
-3. Test the oldest and newest stable Python versions declared in `requires-python`.
-4. Add small Linux, macOS, and Windows smoke coverage where practical.
-5. Build wheel and sdist.
-6. Inspect package metadata with an appropriate PyPA tool.
-7. Install the wheel and sdist separately in clean environments outside the
-   checkout.
-8. Run top-level coordinate, navigation, GeoJSON, CLI, and fix smoke tests
-   against each installed artifact.
-9. Upload artifacts for inspection without publishing them.
-
-Keep the matrix aligned with the package's actual Python support. Testing unsupported or pre-release Python versions may be informative but must not block releases unless project policy says so.
-
-## Release workflow
-
-Create `.github/workflows/release.yml` triggered by tags:
-
-```yaml
-on:
-  push:
-    tags:
-      - "v*"
-```
-
-Recommended jobs:
-
-### 1. Validate
-
-- validate the version as an accepted PEP 440 release;
-- ensure the tag and `pyproject.toml` version match;
-- ensure `CHANGELOG.md` contains the version;
-- ensure the tagged commit is eligible for release; and
-- fail on a version that already exists.
-
-### 2. Test
-
-Run the release-critical test suite on the tagged source.
-
-### 3. Build
-
-- build wheel and sdist exactly once;
-- record their hashes; and
-- upload them as a workflow artifact.
-
-### 4. Test artifacts
-
-- download the build artifact;
-- install the wheel and sdist separately in fresh environments;
-- run top-level coordinate, navigation, GeoJSON, CLI, and fix smoke tests
-  against both installations; and
-- fail before publication on any error.
-
-### 5. Publish to PyPI
-
-- download the already tested artifact;
-- publish only those files;
-- use PyPI Trusted Publishing/OIDC;
-- do not rebuild; and
-- do not use `skip-existing` to hide duplicate-version mistakes.
-
-### 6. Create GitHub Release
-
-- create the release for the same tag;
-- attach the same wheel and sdist; and
-- use the matching changelog section as reviewed release notes.
-
-Publishing jobs depend on successful artifact tests.
-
-## PyPI authentication
-
-Use a protected GitHub environment named `pypi` and limit identity permission to the publish job:
-
-```yaml
-environment:
-  name: pypi
-permissions:
-  id-token: write
-```
-
-Other jobs should use read-only permissions unless a narrowly scoped write is required. Never run untrusted pull-request code in a job with publishing identity.
-
-Use the official PyPA publishing action in a dedicated job. Pin third-party actions to immutable commit SHAs and configure Dependabot to propose SHA updates.
-
-Official references:
-
-- https://docs.pypi.org/trusted-publishers/
-- https://docs.pypi.org/trusted-publishers/adding-a-publisher/
-- https://docs.pypi.org/trusted-publishers/using-a-publisher/
-- https://docs.github.com/en/actions/how-tos/use-cases-and-examples/building-and-testing/building-and-testing-python
-
-## One-time PyPI setup
-
-Before `v0.1.0`:
-
-1. Confirm that the normalized project name `nautipy` is available or controlled by the maintainers. Search results alone do not prove ownership.
-2. Configure the PyPI project and pending trusted publisher using the current PyPI process.
-3. Match the exact GitHub owner, repository, workflow filename, and environment.
-4. Create the protected GitHub `pypi` environment.
-5. Restrict deployment to release tags and optionally require maintainer approval.
-6. Protect the default branch and require the always-running `CI success`
-   aggregate check before merge. Do not require only a dependent job that can
-   be skipped when an upstream check fails.
-7. Verify package links, license metadata, wheel contents, and sdist contents before tagging.
-
-The pending PyPI trusted-publisher identity must use these exact values:
-
-```text
-PyPI project: nautipy
-GitHub owner: cafawo
-GitHub repository: NautiPy
-Workflow filename: release.yml
-Environment: pypi
-```
-
-The identity contains no token or secret. PyPI and GitHub still require the
-maintainer to create and protect their respective project/environment state.
-
-TestPyPI is optional and should be used only when it validates something the production artifact tests do not.
-
-## Human release procedure
-
-1. Confirm the target roadmap milestone and CI are complete.
-2. Move changes from `Unreleased` into a dated `CHANGELOG.md` section.
-3. Set the version in `pyproject.toml`.
-4. Open and merge a focused release-preparation pull request.
-5. Create and push an annotated `vX.Y.Z` tag on that commit.
-6. Approve the protected `pypi` deployment if required.
-7. Verify the PyPI page and installation in a clean environment.
-8. Verify the GitHub Release and artifact hashes.
-9. Review the conda-forge update PR when a feedstock exists.
-
-Do not reuse a version or tag for different bytes.
+1. Confirm that the PyPI version, project metadata, dependency declarations,
+   README, wheel, and source distribution are present.
+2. Install `nautipy==X.Y.Z` in a new environment using ordinary `pip`, run
+   `pip check`, and exercise coordinate, navigation, and fixing imports.
+3. Confirm that the GitHub Release uses the same tag and contains the wheel,
+   source distribution, and `SHA256SUMS`.
+4. Compare the published artifact hashes with the workflow's checksum file.
+5. Confirm that PyPI displays the publication-ready README embedded in the
+   tagged artifacts. A later documentation commit does not change that
+   published description.
+6. Update the roadmap release status while retaining the new `Unreleased`
+   changelog section.
 
 ## Failed releases
 
-Before publication, cancel and fix the workflow.
+Before pushing a tag, fix the release pull request and repeat the checks.
 
-After publication:
+After a tag has been pushed but before PyPI publication:
+
+- rerun an unchanged tagged workflow after correcting a transient service or
+  external-configuration problem; or
+- if source, metadata, or workflow code must change, prepare a new release
+  commit and version rather than moving or reusing the pushed tag.
+
+After PyPI publication:
 
 - never replace files under the same version;
+- rerun only the failed downstream GitHub Release work when the published
+  artifacts are sound;
 - yank a broken PyPI release when appropriate;
 - publish a corrected patch release; and
-- follow conda-forge's current process for broken builds after conda publication.
+- follow conda-forge's process for any already-published downstream build.
 
-The workflow must fail on version mismatch, duplicate upload, missing artifacts, or failed artifact tests.
+The workflow must fail on mismatched versions, duplicate uploads, unexpected
+artifacts, checksum mismatches, or failed artifact tests.
 
-## Conda-forge
+## Conda-forge follows PyPI
 
-Conda-forge is maintained outside this repository through its community feedstock process. Do not add a direct conda-forge upload job to NautiPy's release workflow.
+Conda-forge distribution is maintained outside this repository. NautiPy's
+release workflow must not upload directly to it.
 
-### Initial submission
-
-After stable `0.1.0` is on PyPI:
+After a stable release is available on PyPI:
 
 1. Fork `conda-forge/staged-recipes`.
-2. Add a recipe using the currently accepted staged-recipes format.
-3. Build from the exact PyPI sdist.
-4. Include the sdist checksum, license file, GeographicLib, NumPy, and SciPy
-   runtime dependencies, Python constraint, homepage, and source repository.
-5. Use `noarch: python` when the distribution is pure Python and current conda-forge rules permit it.
-6. Add import and small coordinate, navigation, and fix functional tests using
-   the top-level API.
-7. Open a staged-recipes pull request and address review feedback.
+2. Add a recipe using the exact published PyPI source distribution and
+   checksum.
+3. Declare the package's Python constraint and GeographicLib, NumPy, and SciPy
+   runtime dependencies.
+4. Use `noarch: python` only when the current conda-forge rules permit it.
+5. Add import and small coordinate, navigation, and fixing tests through the
+   top-level API.
+6. Submit the recipe for review.
+
+After acceptance, conda-forge creates `nautipy-feedstock`; its bot normally
+proposes later version updates. Feedstock maintainers review dependency
+changes, migrations, CI, and bot failures before merging.
 
 Official references:
 
-- https://conda-forge.org/docs/maintainer/adding_pkgs/
-- https://conda-forge.org/docs/maintainer/understanding_conda_forge/staged_recipes/
-- https://conda-forge.org/docs/maintainer/updating_pkgs/
-
-### Subsequent releases
-
-After acceptance, conda-forge creates `nautipy-feedstock`. Its update bot normally proposes new versions after upstream releases.
-
-Feedstock maintainers still review dependency changes, CI, migrations, and bot failures before merging. This review is intentional and should not be bypassed by an upstream upload workflow.
-
-## What remains manual
-
-Do not automate:
-
-- deciding that the package is ready;
-- choosing version impact without review;
-- approving breaking API changes;
-- merging release preparation;
-- accepting generated release notes without review;
-- blindly merging feedstock updates; or
-- yanking releases based only on an automated downstream report.
-
-The durable division is:
-
-- humans choose and approve releases;
-- GitHub Actions validates, builds, tests, and publishes exact artifacts;
-- conda-forge automation proposes and builds its distribution; and
-- feedstock maintainers review and merge it.
+- [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/)
+- [Adding a PyPI publisher](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+- [Using a PyPI publisher](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+- [GitHub Actions for Python](https://docs.github.com/en/actions/tutorials/build-and-test-code/python)
+- [Adding packages to conda-forge](https://conda-forge.org/docs/maintainer/adding_pkgs/)

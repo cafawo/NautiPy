@@ -1,8 +1,9 @@
 # Support and API stability
 
-This policy applies beginning with NautiPy's first public release. The
-experimental repository history before `0.1.0` did not establish a supported
-API.
+This document defines the compatibility contract for published NautiPy
+releases. Support begins with the first public release. Repository snapshots
+and development branches are not supported releases, even when their static
+metadata contains an upcoming version number.
 
 ## Public surface
 
@@ -19,7 +20,7 @@ undocumented serialization details are not compatibility promises. Public
 exception types and documented diagnostic fields are part of the API even
 when their full message text is not.
 
-The complete coordinate, navigation, and fixing API is available from
+The common coordinate, navigation, and fixing API is available from
 `nautipy`. Public submodules organize related implementations and remain
 supported where they define documented `__all__` exports, but users do not
 need a special module path to access fixing. `nautipy.cli` and
@@ -29,7 +30,8 @@ with an underscore are private.
 
 ## Versioning
 
-Before `1.0.0`, minor releases may make breaking corrections when they
+After the first public release and before `1.0.0`, minor releases may make
+breaking corrections when they
 materially improve correctness or simplify the public API. Such changes must
 be called out in the changelog and release notes. Patch releases should not
 intentionally break documented behavior.
@@ -41,6 +43,13 @@ release. When practical, a planned removal is deprecated for at least one
 minor release first. Urgent security or correctness fixes may bypass a normal
 deprecation period, but must be explicit in the release notes.
 
+## Supported releases
+
+Once releases exist, NautiPy maintains only its newest published release.
+Older releases remain available but do not receive routine fixes or backports;
+users may need to upgrade before a problem can be addressed. Security
+advisories identify affected versions and any exceptional backport explicitly.
+
 ## Python versions and platforms
 
 The authoritative Python range is the `requires-python` value in
@@ -48,12 +57,12 @@ The authoritative Python range is the `requires-python` value in
 conda-forge metadata must agree with it. Prose documentation deliberately does
 not duplicate the range.
 
-The oldest and newest supported Python versions receive the complete test
-suite, including the fix engine, with normally resolved dependencies. A
-separate oldest-Python job tests the exact declared minimum GeographicLib,
-NumPy, and SciPy versions. Built-artifact checks run on the newest supported
-Python. Linux, macOS, and Windows receive plain-install and complete public-API
-smoke coverage.
+Every supported Python version receives the complete test suite with normally
+resolved dependencies. A separate oldest-Python job tests the exact declared
+minimum GeographicLib, NumPy, and SciPy versions. Built-artifact checks run on
+the newest supported Python. Linux, macOS, and Windows receive representative
+plain-install smoke coverage of the top-level coordinate, navigation, and
+fixing API.
 
 Adding or dropping a Python version is a minor-release change and is never
 hidden in a patch release. A planned removal should be announced one minor

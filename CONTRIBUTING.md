@@ -1,207 +1,150 @@
 # Contributing to NautiPy
 
-NautiPy values small changes that make coordinate handling or navigation work easier, safer, and more understandable.
+Thank you for helping make coordinate and small-scale navigation work easier,
+safer, and more understandable.
 
-Read [AGENTS.md](AGENTS.md), [docs/PRODUCT.md](docs/PRODUCT.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md) before substantial work.
+This is the human contributor guide. Coding agents should also follow
+[AGENTS.md](AGENTS.md).
 
-## Clean-slate policy
+## Set up a development checkout
 
-The old repository code is not a supported API. Contributions to the rewrite should not add:
+Use Git and a Python version accepted by the
+[`requires-python` setting](pyproject.toml).
 
-- compatibility wrappers for experimental names;
-- deprecated aliases or migration shims;
-- a `legacy` package;
-- tests that preserve incorrect formulas; or
-- abstractions whose only purpose is supporting the old layout.
+If you do not have write access to the main repository, fork it on GitHub
+first and use your fork's URL in the `git clone` command below.
 
-Reuse an old idea only after expressing it through the new API and independently verifying its behavior.
+On macOS or Linux:
 
-## Standard development setup
-
-NautiPy must be developable with ordinary Python tooling:
-
-```bash
-python -m venv .venv
+```console
+git clone https://github.com/cafawo/NautiPy.git
+cd NautiPy
+python3.12 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
+python -m pip check
 python -m unittest discover -s tests -v
 ```
 
-The editable install includes GeographicLib, NumPy, and SciPy and runs the
-complete coordinate, navigation, and fix suite. There is no second
-installation mode.
+On Windows PowerShell:
 
-To build distributions:
-
-```bash
-python -m pip install build
-python -m build
+```console
+git clone https://github.com/cafawo/NautiPy.git
+cd NautiPy
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip check
+python -m unittest discover -s tests -v
 ```
 
-Activate the virtual environment using the normal command for your shell, or call its Python executable directly.
+The `python3.12` and `py -3.12` commands are examples; another supported
+interpreter works as well. After activation, `python` refers to the virtual
+environment. The editable install includes GeographicLib, NumPy, and SciPy and
+enables the complete test suite.
 
-The project must not require Poetry, uv, Conda, Make, Docker, pre-commit, a Unix shell, or an editor plugin. Contributors may use any of them locally. The documented `python -m ...` commands remain the portable reference.
+No particular environment manager, editor, shell, or operating system is
+required. The `python -m ...` commands above are the portable reference once
+the environment is active.
 
-## Choosing work
+Create a focused branch, make and verify the change, push that branch, and open
+a pull request against NautiPy. These steps work through VS Code's Git
+interface or ordinary Git commands; the GitHub CLI is not required. The
+[issue tracker](https://github.com/cafawo/NautiPy/issues) is the best place to
+find or discuss scoped work.
 
-Prefer the first incomplete milestone in [ROADMAP.md](ROADMAP.md), a clearly scoped issue, or a bug with a reproducible example.
+## Choose a focused change
 
-A feature should strengthen one of these workflows:
+Start with a clearly scoped issue or a reproducible bug. The
+[roadmap](ROADMAP.md) provides direction, but its first-release checklist
+contains maintainer operations rather than general contribution tasks. A
+contribution should strengthen one of these workflows:
 
-1. parse and normalize coordinates;
-2. inspect or convert coordinate formats;
-3. calculate WGS84 navigation values;
-4. exchange positions through lightweight formats; or
-5. estimate a position from bearings and ranges.
+1. parse, inspect, or convert coordinates;
+2. calculate WGS84 navigation values;
+3. exchange positions through GeoJSON or the command line; or
+4. estimate a position from bearings and ranges.
 
-Features outside this scope need an explicit product-direction decision before implementation.
+Discuss features outside the documented
+[product direction](docs/PRODUCT.md) before implementing them. Keep each pull
+request focused on one working behavior rather than combining unrelated
+cleanup.
 
-## Pull requests
+Read the specification related to your change:
 
-Keep each pull request a working vertical slice. Packaging, coordinate formats,
-geodesics, release automation, and the fix engine should normally remain
-separate.
+- [Coordinates](docs/COORDINATES.md)
+- [Navigation](docs/NAVIGATION.md)
+- [Position fixes](docs/FIXES.md)
+- [GeoJSON](docs/GEOJSON.md)
+- [Architecture and dependencies](docs/ARCHITECTURE.md)
+- [Support and public API](docs/SUPPORT.md)
 
-A useful pull request description states:
+## Add meaningful tests
 
-- the user problem;
-- the observable behavior;
-- examples or reference data;
-- tests added;
-- runtime dependency effects;
-- numerical assumptions and tolerances; and
+Use standard-library `unittest` unless a concrete need justifies another test
+dependency. Exercise public behavior and error cases, not only private
+implementation details.
+
+Coordinate changes should cover relevant malformed, ambiguous, boundary, and
+round-trip cases. Numerical changes should include an independent reference,
+difficult or degenerate geometry, justified tolerances, and explicit failure
+behavior. Tests must not depend on network services, changing datasets,
+wall-clock dates, locale settings, or unseeded randomness.
+
+Run the quick checks whenever you change code:
+
+```console
+python -m pip check
+python -m unittest discover -s tests -v
+```
+
+## Check distributions before review
+
+Before requesting review, build and test the installable artifacts. These
+checks are especially important for packaging, dependency, import-boundary,
+and release-preparation changes:
+
+```console
+python -m pip install build twine
+python -m build
+python -m twine check dist/*
+python scripts/smoke_test_artifact.py dist/nautipy-VERSION-py3-none-any.whl
+python scripts/smoke_test_artifact.py dist/nautipy-VERSION.tar.gz
+```
+
+Replace `VERSION` with the version shown in the filenames produced by
+`python -m build`. Each smoke command creates a clean temporary environment
+and downloads the artifact's declared dependencies, so it requires network
+access.
+
+Use the quick checks during development and the full artifact checks before
+review.
+
+## Prepare the pull request
+
+A useful pull request explains:
+
+- the user problem and observable behavior;
+- examples or independent reference data;
+- tests and commands run;
+- public API or runtime dependency effects;
+- numerical assumptions, units, and tolerances; and
 - known limitations.
 
-Do not mix broad cleanup into a behavioral change unless the cleanup is required. During Milestone 0, deleting the experimental implementation is required cleanup.
+Update public examples and documentation whenever behavior changes. Keep
+third-party objects behind NautiPy result types, use descriptive exceptions
+for caller errors, and never silently change coordinate order, Earth model, or
+units. Before version 1.0, prefer a clean correction over a compatibility layer
+for behavior that has never been publicly released.
 
-## Tests
+Pull requests never publish packages. Maintainers create intentional release
+tags according to the [release procedure](docs/RELEASING.md).
 
-Use standard-library `unittest` unless a concrete testing requirement justifies another tool. Tests should exercise public behavior rather than private implementation details.
+## Community and sensitive reports
 
-### Coordinate changes
+Follow the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.
 
-Include relevant cases for:
-
-- ordinary valid input;
-- harmless syntax variation;
-- malformed input;
-- legal range boundaries;
-- NaN and infinity;
-- sign and hemisphere conflicts;
-- ambiguous coordinate order;
-- decimal-comma ambiguity;
-- formatting carry and negative zero; and
-- parse/format round trips.
-
-[docs/COORDINATES.md](docs/COORDINATES.md) is the coordinate behavior contract.
-
-### Numerical changes
-
-Include:
-
-- at least one independent reference case;
-- normal operating cases;
-- difficult geometry;
-- impossible or degenerate geometry;
-- justified tolerances; and
-- explicit failure or convergence behavior.
-
-Synthetic cases with a known generating position are useful but do not replace independent reference results.
-
-Tests must not depend on network services, changing online datasets, wall-clock dates, locale settings, or unseeded randomness.
-
-## Public API
-
-- Keep top-level exports small and intentional.
-- Type-annotate public functions, dataclasses, methods, and result fields.
-- Use descriptive exceptions, not assertions, for caller errors.
-- State units in names, signatures, or documentation.
-- Do not silently change coordinate order, Earth model, or units.
-- Update public examples with the implementation.
-- Before 1.0, prefer a clean correction over a deprecation layer for unreleased behavior.
-- At and after 1.0, follow semantic versioning for documented APIs.
-
-See [docs/SUPPORT.md](docs/SUPPORT.md) for the public-surface, compatibility,
-and supported-Python policy.
-
-Internal names beginning with an underscore are not public unless documentation states otherwise.
-
-## Dependency policy
-
-Runtime dependencies carry long-term installation and support cost.
-
-The target architecture is:
-
-- coordinate parsing, formatting, GeoJSON, CLI, and models: standard library;
-- navigation: GeographicLib for mature pure-Python WGS84 calculations;
-- advanced fixing: NumPy and SciPy for numerical arrays, linear algebra, and
-  nonlinear least squares; and
-- distribution: all three libraries are normal runtime dependencies so one
-  installation provides every feature.
-
-Before adding a dependency, document:
-
-1. the shipped feature that needs it;
-2. the correctness or maintenance risk it removes;
-3. why the standard library or an existing dependency is insufficient;
-4. whether its imports can remain isolated from coordinate-only use;
-5. its Python and platform support; and
-6. its import impact on coordinate-only use.
-
-Do not add runtime dependencies for validation, unit enums, command-line parsing, logging, JSON, formatting, HTTP, testing convenience, or documentation generation.
-
-Avoid exact runtime pins unless a verified incompatibility requires one. Use bounds only when they describe tested compatibility, and explain temporary exclusions in an issue or comment.
-
-## Coordinate implementation
-
-The parser should be a pipeline:
-
-1. preserve the original input;
-2. normalize harmless syntax;
-3. extract axis and separator evidence;
-4. run independent format candidates;
-5. validate components and ranges;
-6. resolve equivalent candidates; and
-7. raise an actionable error when distinct candidates remain.
-
-Do not grow one regular expression that accepts every format. Do not use likely geography to infer coordinate order.
-
-Coordinate modules must remain usable without importing geodesic or scientific packages.
-
-## Numerical implementation
-
-- Default to WGS84 ellipsoidal calculations.
-- Use the selected mature geodesic implementation rather than handwritten approximations.
-- Keep third-party objects behind NautiPy result types.
-- Normalize generated bearings and wrapped bearing residuals correctly.
-- Treat non-convergence and weak geometry as outcomes to report.
-- Define nautical bearing observations from the unknown position toward a
-  known reference; do not use a reciprocal `+ 180°` shortcut on WGS84.
-- Optimize fixes in local metre coordinates and evaluate every prediction with
-  the WGS84 geodesic backend, not raw latitude/longitude least squares.
-- Keep NumPy/SciPy arrays and optimizer results behind NautiPy result models,
-  expose the complete fix API from `nautipy`, and keep scientific imports out
-  of coordinate-only module paths.
-- Never round intermediate values for display.
-
-## Documentation
-
-Examples should be copyable and tested against the built wheel. Clearly distinguish:
-
-- accepted input from guessed input;
-- true bearing from magnetic bearing;
-- metres from display units;
-- WGS84 geodesics from approximations; and
-- solver convergence from good observation geometry.
-
-Do not claim suitability for certified or safety-critical navigation.
-
-## Build and release checks
-
-Before review, run the canonical tests and build commands. Packaging and import changes must also be tested from the built wheel outside the source checkout.
-
-Pull requests never publish packages. Maintainers create intentional semantic-version tags after merging release preparation. See [docs/RELEASING.md](docs/RELEASING.md).
-
-## Security-sensitive reports
-
-Do not post credentials, private position data, or a reproducible exploit in a public issue. Use GitHub private security reporting when enabled or contact the maintainer through the repository's published contact information.
+Do not put credentials, private position data, or a suspected vulnerability in
+a public issue. Use the private process in [SECURITY.md](SECURITY.md) instead.
