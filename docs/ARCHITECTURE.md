@@ -27,7 +27,7 @@ The coordinate layer uses only the Python standard library. It owns:
 
 - immutable `Position` values;
 - coordinate normalization, detection, parsing, and validation;
-- formatting, conversion, and inspection metadata;
+- formatting, conversion, and scalar and batch inspection metadata;
 - coordinate exceptions;
 - two-dimensional GeoJSON interchange; and
 - coordinate conversion and inspection CLI plumbing.
@@ -74,9 +74,9 @@ See [FIXES.md](FIXES.md).
 
 Import boundaries are a tested design property:
 
-- importing `nautipy`, parsing or formatting coordinates, using coordinate
-  models, or importing the CLI does not load GeographicLib, NumPy, SciPy, or
-  the private numerical solver;
+- importing `nautipy`, parsing, formatting, or batch-inspecting coordinates,
+  using coordinate models, or importing the CLI does not load GeographicLib,
+  NumPy, SciPy, or the private numerical solver;
 - requesting a navigation calculation loads GeographicLib but not NumPy or
   SciPy; and
 - requesting candidate geometry or `solve_fix` loads the numerical solver and
@@ -131,6 +131,14 @@ is centralized rather than duplicated in navigation, fixing, or interchange
 code. `format_position` deliberately accepts a validated `Position`;
 `convert_position` is the parse-and-format convenience API.
 
+`inspect_positions` consumes an ordinary iterable once and applies the scalar
+inspection contract independently to each yielded value. Its immutable result
+models preserve order and source indices without introducing dataframe types,
+parallel execution, or a second parsing implementation. Position-like scalar
+forms that are unambiguously one value (`Position`, text, bytes, and mappings)
+are rejected as the outer batch argument. Sequences are always treated as the
+outer batch, so a sequence-form position must be nested.
+
 ## Data conventions
 
 - Latitude and longitude are finite decimal-degree `float` values.
@@ -150,9 +158,12 @@ to correct invalid input where practical. Public validation never relies on
 `assert`.
 
 Recoverable parser information belongs in `ParseResult`, not global logging or
-routine Python warnings. Numerical result objects distinguish convergence,
-uniqueness, geometry quality, and fit quality; a successful optimizer step is
-not by itself a trustworthy fix.
+routine Python warnings. Batch collect mode represents a yielded record's
+public `CoordinateError` type, message, and ambiguity candidates as immutable
+result data; exceptions raised while advancing the source iterator are not
+coordinate records and propagate unchanged. Numerical result objects
+distinguish convergence, uniqueness, geometry quality, and fit quality; a
+successful optimizer step is not by itself a trustworthy fix.
 
 ## Packaging
 

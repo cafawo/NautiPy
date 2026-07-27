@@ -49,6 +49,61 @@ print(result.latitude_resolution)
 The inspection result records how the position was selected. Ambiguity remains
 an exception because there is no safe selected position to return.
 
+## Inspect a CSV column without dropping rows
+
+Keep the source rows when importing a coordinate column. The batch result's
+zero-based indices then provide a stable link back to both accepted and
+rejected records:
+
+```python
+import csv
+
+from nautipy import BatchInspectionSuccess, inspect_positions
+
+with open("positions.csv", newline="", encoding="utf-8") as stream:
+    rows = list(csv.DictReader(stream))
+
+batch = inspect_positions(
+    (row["position"] for row in rows),
+    order="auto",
+)
+
+accepted = []
+rejected = []
+for item in batch.items:
+    source_row = rows[item.index]
+    if isinstance(item, BatchInspectionSuccess):
+        accepted.append((source_row, item.result.position))
+    else:
+        rejected.append(
+            (
+                source_row,
+                item.error_type.__name__,
+                item.message,
+            )
+        )
+
+print(batch.parsed_count, batch.ambiguous_count, batch.invalid_count)
+```
+
+Use `order="auto"` only when records contain hard axis evidence. If the column
+contract says that unmarked values are latitude/longitude, retain the
+`order="latlon"` default instead.
+
+The default `errors="collect"` inspects every yielded record and stores each
+public coordinate exception type and message. Set `errors="raise"` for an
+all-or-nothing workflow; it stops at the first coordinate failure, raises the
+same exception subclass, and identifies its `positions[index]`. An exception
+from the CSV or another source iterator is not a coordinate record and
+propagates unchanged in either mode.
+
+Pass an iterable of records, not one scalar or structured value. A string,
+mapping, `Position`, bytes, or bytearray value is rejected as the outer batch
+argument. Every other sequence is treated as the collection itself, so numeric
+position pairs must be nested, for example `[(50.12257, 8.66570)]`. To format
+an accepted position without parsing it again, pass `item.result.position` to
+`format_position`.
+
 ## Convert without losing the intended order
 
 ```python
@@ -248,4 +303,3 @@ Exact behavior is defined by the
 [GeoJSON](https://github.com/cafawo/NautiPy/blob/master/docs/GEOJSON.md), and
 [position-fix](https://github.com/cafawo/NautiPy/blob/master/docs/FIXES.md)
 specifications.
-

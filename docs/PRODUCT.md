@@ -75,7 +75,8 @@ The package implements:
 - immutable, validated `Position` values;
 - detection and conversion of DD, DDM, DMS, two-dimensional ISO 6709, and
   NMEA coordinate fields;
-- explicit coordinate-order controls and inspection metadata;
+- explicit coordinate-order controls and scalar and batch inspection
+  diagnostics;
 - WGS84 distance, endpoint bearings, destination, interpolation, and
   nearest-position lookup;
 - GeoJSON Point and FeatureCollection interchange;

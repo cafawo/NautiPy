@@ -4,12 +4,16 @@ import importlib as _importlib
 import typing as _typing
 
 from .coordinates import (
+    BatchInspectionFailure,
+    BatchInspectionResult,
+    BatchInspectionSuccess,
     CandidateDiagnostic,
     ParseResult,
     PositionInput,
     convert_position,
     format_position,
     inspect_position,
+    inspect_positions,
     parse_position,
 )
 from .errors import (
@@ -65,8 +69,12 @@ __all__ = [
     "PositionInput",
     "CandidateDiagnostic",
     "ParseResult",
+    "BatchInspectionSuccess",
+    "BatchInspectionFailure",
+    "BatchInspectionResult",
     "parse_position",
     "inspect_position",
+    "inspect_positions",
     "format_position",
     "convert_position",
     "InverseResult",
