@@ -1,22 +1,51 @@
-# Coordinate detection and conversion specification
+# Coordinate input and conversion
 
 ## Purpose
 
-Coordinate input is NautiPy's first product differentiator. Users should be able to paste common human-readable, machine-readable, and device-style coordinates without first identifying the notation.
+NautiPy accepts common human-readable, machine-readable, and device-style
+position pairs without requiring callers to identify the notation first. It is
+forgiving about presentation and strict about meaning:
 
-The parser must be forgiving about presentation and strict about meaning:
+- harmless syntax differences are normalized;
+- latitude, longitude, and subcomponents are validated;
+- order is inferred only from hard evidence; and
+- materially different interpretations raise an actionable ambiguity error.
 
-- normalize harmless syntax variation;
-- validate latitude and longitude rigorously;
-- infer only what the input proves;
-- never silently choose between materially different positions; and
-- provide a simple conversion API built on the same parser.
+This document defines observable coordinate behavior. Parser internals may
+change without changing these guarantees.
 
-This document defines observable behavior. Internal parser structure may change as long as these guarantees remain true.
+## Public API
 
-## Proposed public API
+```text
+parse_position(value, *, order="latlon", format=None) -> Position
+inspect_position(value, *, order="latlon", format=None) -> ParseResult
+format_position(
+    position,
+    *,
+    to="dd",
+    order="latlon",
+    precision=None,
+    notation=None,
+    symbols=None,
+    compact=None,
+    separator=None,
+) -> str
+convert_position(
+    value,
+    *,
+    to="dd",
+    order="latlon",
+    output_order="latlon",
+    format=None,
+    precision=None,
+    notation=None,
+    symbols=None,
+    compact=None,
+    separator=None,
+) -> str
+```
 
-The common path returns an ordinary validated `Position`:
+`parse_position` is the low-friction path:
 
 ```python
 from nautipy import parse_position
@@ -24,81 +53,99 @@ from nautipy import parse_position
 position = parse_position("50° 7.3542' N; 8° 39.942' E")
 ```
 
-The intended public surface is:
+`format_position` accepts an already validated `Position`.
+`convert_position` combines parsing and formatting for other position-like
+inputs.
 
-```python
-parse_coordinate(value, *, axis=None, format=None) -> float
-parse_position(value, *, order="latlon", format=None) -> Position
-inspect_position(value, *, order="latlon", format=None) -> ParseResult
-format_coordinate(value, *, axis, to="dd", precision=None, **options) -> str
-format_position(position, *, to="dd", order="latlon", precision=None, **options) -> str
-convert_position(value, *, to="dd", order="latlon", precision=None, **options) -> str
-```
+With `format=None`, NautiPy detects the input format. Passing `format="dd"`,
+`"ddm"`, `"dms"`, `"iso6709"`, or `"nmea"` selects that interpretation while
+retaining common normalization and full validation.
 
-Names may be refined during implementation, but the package must retain both:
+`PositionInput` is the public typing alias for accepted position text,
+two-value sequences, named mappings, GeoJSON Points, and `Position` itself.
+The `nautipy.coordinates` module also exposes typing aliases for coordinate
+format and order values.
 
-1. a low-friction function returning `Position`; and
-2. an inspection path returning detection metadata, normalized tokens, warnings, and rejected alternatives.
+## Position and inspection results
 
-Passing `format=` means "interpret this input as this format" and bypasses automatic format selection after common normalization. It must still validate the data.
+A `Position` stores:
 
-## Canonical internal representation
+- latitude as a finite `float` in `[-90, 90]`;
+- longitude as a finite `float` in `[-180, 180]`;
+- optional keyword-only `identifier` and `description` metadata; and
+- no display notation or source precision.
 
-A parsed position is represented as:
+Identifiers are strings or finite JSON-style numbers. Descriptions are
+strings. Metadata does not affect equality or hashing.
 
-- latitude: finite Python `float` in `[-90, 90]` decimal degrees;
-- longitude: finite Python `float` in `[-180, 180]` decimal degrees;
-- WGS84 geographic coordinates;
-- no display formatting or unit suffix stored in the value itself.
+`inspect_position` returns an immutable `ParseResult` containing:
 
-The `Position` model may store user metadata such as a description or identifier, but formatting and parser diagnostics do not participate in position equality.
+- the parsed `position`;
+- the detected whole-position `format` and each axis's component format;
+- source-order evidence;
+- original and normalized text information;
+- normalization labels;
+- inferred angular resolution where available; and
+- selected, equivalent, and rejected `CandidateDiagnostic` records.
 
-Do not silently wrap out-of-range user input. `181° E` is an error, not `179° W`. Geodesic calculations may normalize generated destinations separately.
+If interpretations compete, inspection raises `AmbiguousCoordinateError`
+instead of returning a selected `ParseResult`. The exception's `candidates`
+attribute contains the competing diagnostics.
 
-## Accepted input families
+With `order="auto"`, `source_order` is `None` when equal unmarked values make
+both source orders equivalent. Structured numeric input has no lexical tokens
+or inferred source resolution.
+The `warnings` field is reserved for recoverable concerns; current harmless
+normalizations, including the `dmm` alias, are reported in `normalizations`
+rather than as warnings.
+
+## Accepted position forms
 
 ### Decimal degrees (`dd`)
 
-Accept numeric values and strings with optional sign or hemisphere:
+Decimal-degree components may use a sign, a hemisphere, or both where they do
+not conflict:
 
 ```text
-50.12257
-+50.12257
--8.66570
-50.12257 N
-N 50.12257
-8.66570° E
+50.12257, 8.66570
+50.12257 N; 8.66570 E
+N 50.12257; E 8.66570
 ```
 
-A hemisphere may appear before or after the number. A sign and hemisphere may coexist only when they agree. `-50 S` is positive latitude only if the API explicitly documents double-negation; the preferred and safer behavior is to reject mixed sign-plus-hemisphere input unless the sign is non-negative. `-50 N` and `+50 S` are always contradictory.
+A negative sign combined with any hemisphere is rejected rather than treated
+as double negation. An explicit `+` may accompany `N` or `E`, but contradicts
+`S` or `W`.
 
 ### Degrees and decimal minutes (`ddm`)
 
-Use `ddm` as the canonical name. Accept `dmm` as a compatibility alias.
+`ddm` is the canonical name. `dmm` is accepted as an input and output option
+alias and is canonicalized to `ddm` in inspection metadata.
 
 ```text
-50° 7.3542' N
-N 50 7.3542
-50 deg 7.3542 min N
-8:39.942 E
+50° 7.3542' N; 8° 39.942' E
+N 50 7.3542; E 8 39.942
+50 deg 7.3542 min N; 8 deg 39.942 min E
+50:7.3542 N; 8:39.942 E
 ```
-
-A direction marker or explicit `axis=` is required when a standalone unsigned value could be either latitude or longitude.
 
 ### Degrees, minutes, and seconds (`dms`)
 
 ```text
-50° 7' 21.252" N
-N 50 7 21.252
-50 deg 7 min 21.252 sec N
-8:39:56.52 E
+50° 7' 21.252" N; 8° 39' 56.52" E
+N 50 7 21.252; E 8 39 56.52
+50 deg 7 min 21.252 sec N; 8 deg 39 min 56.52 sec E
+50:7:21.252 N; 8:39:56.52 E
 ```
 
-Accept common ASCII and Unicode degree, prime, and double-prime forms after normalization.
+DD, DDM, and DMS component forms are accepted within a complete position pair
+or a named latitude/longitude mapping. NautiPy does not expose a standalone
+single-coordinate parser or an `axis=` argument. Latitude and longitude may
+use different human-readable formats; inspection then reports the
+whole-position format as `mixed`.
 
-### ISO 6709
+### ISO 6709 (`iso6709`)
 
-Support separated and compact forms that can be interpreted without guessing, including a trailing slash where used:
+NautiPy supports an unambiguous two-dimensional signed subset:
 
 ```text
 +50.12257+008.66570/
@@ -106,33 +153,51 @@ Support separated and compact forms that can be interpreted without guessing, in
 +50.12257,+008.66570
 ```
 
-Compact ISO 6709 parsing must determine component boundaries from valid latitude/longitude widths and syntax. Do not use loose splitting that can reinterpret malformed data.
+Latitude and longitude fields require signs and the widths defined by their
+axes. Decimal-degree (`DD`/`DDD`), DDM (`DDMM`/`DDDMM`), and DMS
+(`DDMMSS`/`DDDMMSS`) fields are accepted, with a fraction on the
+least-significant unit. Both components use the same form. Compact input has
+no separator; a space or comma may separate fields.
 
-Altitude or CRS suffixes are outside the first implementation unless they can be safely ignored with an explicit warning. Never treat altitude as longitude.
+Altitude, extra signed fields, and CRS suffixes are rejected. NautiPy never
+treats them as longitude or silently discards them.
 
-### NMEA coordinate fields
+### NMEA coordinate fields (`nmea`)
 
-Support latitude/longitude coordinate fields and direction fields without attempting to become a full NMEA sentence decoder:
+NautiPy accepts latitude/longitude fields and direction fields without decoding
+complete NMEA sentences:
 
 ```text
 5007.3542,N,00839.9420,E
 5007.3542 N; 00839.9420 E
 ```
 
-NMEA latitude uses `ddmm.mmmm`; longitude uses `dddmm.mmmm`. Direction fields are required for automatic NMEA detection. Full `$GPGGA`, `$GPRMC`, or other sentence parsing remains out of scope for the core coordinate parser.
+Latitude uses `ddmm.mmmm`; longitude uses `dddmm.mmmm`. The decimal point and
+at least one fractional-minute digit are required. The widths before the point
+are exact. Supported pairs use either the four-field comma form or the
+two-component semicolon form.
+
+Directions are required and may prove the axes when input order is reversed.
+Complete `$GPGGA`, `$GPRMC`, and other NMEA sentences are rejected.
 
 ### Structured Python values
 
-Accept:
+Accepted forms include:
 
 ```python
 parse_position((50.12257, 8.66570))
 parse_position([50.12257, 8.66570])
 parse_position({"lat": 50.12257, "lon": 8.66570})
-parse_position({"latitude": "50° 7.3542' N", "longitude": "8° 39.942' E"})
+parse_position({
+    "latitude": "50° 7.3542' N",
+    "longitude": "8° 39.942' E",
+})
 ```
 
-Recognize GeoJSON Point objects as longitude/latitude by the GeoJSON specification:
+Named mappings contain exactly one latitude key (`lat` or `latitude`) and one
+longitude key (`lon` or `longitude`). Unknown and extra fields are rejected.
+
+A GeoJSON Point has specification-defined longitude/latitude order:
 
 ```python
 parse_position({
@@ -141,162 +206,154 @@ parse_position({
 })
 ```
 
-Do not apply the GeoJSON order to an ordinary two-element list unless `order="lonlat"` is provided.
+Point coordinates contain exactly two numeric values. Three-dimensional
+coordinates, legacy `crs` members, conflicting named coordinate fields, and
+members belonging to another GeoJSON object type are rejected. Ordinary
+GeoJSON foreign members are accepted but not preserved.
 
-## Text normalization
+The GeoJSON order does not apply to an ordinary two-value sequence; pass
+`order="lonlat"` for such input.
 
-Before format-specific parsing, normalize presentation without changing meaning:
+## Normalization
 
-- trim outer and repeated internal whitespace where separators allow it;
-- normalize Unicode minus signs to ASCII `-`;
-- recognize common degree symbols such as `°` and `º`;
-- recognize straight and typographic minute/second marks;
-- compare hemisphere letters case-insensitively;
-- accept full words such as `north`, `south`, `east`, and `west` when unambiguous;
-- normalize `deg`, `degree`, `degrees`, `min`, `minute`, `sec`, and equivalent casing;
-- preserve the original input in diagnostics.
+NautiPy normalizes presentation only when meaning is preserved. Supported
+normalizations include:
 
-Normalization must not remove punctuation before deciding whether it is a decimal separator, component separator, or pair separator.
+- outer and harmless repeated whitespace;
+- Unicode minus signs;
+- common degree, prime, and double-prime characters;
+- case-insensitive hemisphere letters and full direction words;
+- common degree/minute/second words and abbreviations; and
+- decimal commas when pair syntax proves their role.
 
-## Decimal-comma behavior
+The original text remains available through `ParseResult`. Punctuation is not
+discarded before the parser determines whether it is a decimal, component, or
+pair separator.
 
-Decimal commas are common and should be supported when syntax makes them unambiguous:
+### Decimal commas
+
+These forms are unambiguous:
 
 ```text
-50,12257 N
 50,12257 N; 8,66570 E
 50° 7,3542' N; 8° 39,942' E
 ```
 
-A semicolon, slash, hemisphere markers, named fields, or structured input can disambiguate the coordinate pair.
-
-The following is ambiguous and must fail with guidance:
+This form is not:
 
 ```text
 50,12257, 8,66570
 ```
 
-The error should suggest `50,12257; 8,66570`, explicit `order=`, or dot decimals.
+It raises `AmbiguousCoordinateError` with guidance to use a semicolon or dot
+decimals. Coordinate order cannot resolve separator ambiguity.
 
-## Axis and coordinate-order rules
+## Coordinate order
 
-### Single coordinates
+`parse_position` and `inspect_position` default to `order="latlon"`.
 
-A standalone unsigned coordinate requires one of:
+- `latlon`: the first unmarked component is latitude.
+- `lonlat`: the first unmarked component is longitude.
+- `auto`: hard evidence is required; otherwise parsing is ambiguous.
 
-- `axis="lat"` or `axis="lon"`;
-- a latitude/longitude hemisphere marker; or
-- a format whose structure includes the axis.
+Hard evidence includes axis markers, named fields, GeoJSON structure, NMEA
+widths and directions, or one numeric value outside the latitude range but
+inside the longitude range.
 
-Signed decimal degrees can be parsed without an axis, but range validation is limited to the selected or inferred axis. Prefer requiring `axis` for values between `-90` and `90` when validation matters.
+When both unmarked values are within `[-90, 90]`, `order="auto"` raises
+`AmbiguousCoordinateError` unless both orders produce the same position.
+NautiPy does not use geography, inhabited regions, sign patterns, or
+statistical likelihood to guess. Explicit hemisphere and named-axis evidence
+overrides textual order.
 
-### Position pairs
+`output_order` independently controls `convert_position` output. ISO 6709
+output is always latitude/longitude.
 
-`parse_position` defaults to `order="latlon"`. This is a documented contract, not an inference.
-
-Supported order values:
-
-- `latlon`: first value is latitude, second is longitude;
-- `lonlat`: first value is longitude, second is latitude;
-- `auto`: use only hard evidence, otherwise raise `AmbiguousCoordinateError`.
-
-Hard evidence includes:
-
-- hemisphere or named-field axis markers;
-- a recognized GeoJSON object;
-- NMEA field widths plus directions;
-- one numeric component outside the latitude range but inside the longitude range.
-
-When both values are within `[-90, 90]` and no axis marker exists, `order="auto"` is ambiguous. Do not use geography, likely inhabited regions, sign patterns, or "most common" assumptions to choose.
-
-Hemisphere markers override textual order. A pair such as `8 E, 50 N` may be returned correctly even under `order="auto"`, and inspection metadata should note the source order.
-
-## Detection strategy
-
-Implement detection as a staged candidate parser, not one monolithic regular expression.
-
-Recommended flow:
-
-1. Classify Python structure versus text.
-2. Normalize Unicode and vocabulary while preserving separator information.
-3. Extract explicit axis markers and named fields.
-4. Generate plausible format candidates based on syntax.
-5. Parse each candidate independently.
-6. Validate components and ranges.
-7. If exactly one interpretation remains, return it.
-8. If multiple interpretations produce the same normalized position, return it and record equivalent candidates.
-9. If multiple interpretations produce different positions, raise `AmbiguousCoordinateError` with candidates.
-10. If none remain, raise `CoordinateParseError` containing the failing token or rule where possible.
-
-Candidate selection may rank strong syntax evidence, but it must not choose a lower-confidence interpretation merely to avoid an error.
-
-The inspection result should expose enough information to answer:
-
-- Which format was selected?
-- Which axis/order evidence was used?
-- What normalization occurred?
-- Was precision inferred?
-- Were equivalent candidates found?
-- Why were alternatives rejected?
-
-## Component validation
+## Validation
 
 For DDM and DMS:
 
-- degrees must be integral unless the selected format explicitly permits decimal degrees;
-- minutes must satisfy `0 <= minutes < 60`;
-- seconds must satisfy `0 <= seconds < 60`;
-- latitude degrees must satisfy `0 <= degrees <= 90`;
-- longitude degrees must satisfy `0 <= degrees <= 180`;
-- latitude at exactly 90 degrees requires zero minutes and seconds;
-- longitude at exactly 180 degrees requires zero minutes and seconds.
+- degrees are integral;
+- minutes and seconds are in `[0, 60)`;
+- latitude degrees are at most 90;
+- longitude degrees are at most 180; and
+- exactly 90 or 180 degrees requires zero subordinate components.
 
-For all formats:
+Every format rejects:
 
-- reject NaN and infinity;
-- reject missing components;
-- reject repeated or conflicting hemisphere markers;
-- reject sign/hemisphere conflicts;
-- reject unexpected trailing tokens rather than ignoring them;
-- reject an extra numeric field that could be altitude unless altitude support was explicitly requested.
+- NaN and infinity;
+- missing components;
+- repeated or conflicting hemisphere markers;
+- sign/hemisphere conflicts;
+- unexpected trailing tokens;
+- out-of-range values; and
+- altitude or other extra numeric fields.
 
-Errors must be exceptions with useful messages, not assertions.
+User longitude outside `[-180, 180]` is rejected rather than wrapped.
 
 ## Formatting and conversion
 
-Canonical output names:
+Output formats are `dd`, `ddm`, `dms`, `iso6709`, and `nmea`. Defaults for
+`Position(50.12257, 8.66570)` are:
 
-- `dd`: decimal degrees;
-- `ddm`: degrees and decimal minutes;
-- `dms`: degrees, minutes, and seconds;
-- `iso6709`: ISO 6709 coordinate pair;
-- `nmea`: NMEA coordinate fields plus directions.
+| Format | Precision | Output |
+| --- | ---: | --- |
+| DD | 6 degree decimals | `50.122570, 8.665700` |
+| DDM | 4 minute decimals | `50° 7.3542′ N; 8° 39.9420′ E` |
+| DMS | 2 second decimals | `50° 7′ 21.25″ N; 8° 39′ 56.52″ E` |
+| ISO 6709 | 6 degree decimals | `+50.122570+008.665700/` |
+| NMEA | 4 minute decimals | `5007.3542,N,00839.9420,E` |
 
-Accept `dmm` as an alias for `ddm`, but emit canonical names in metadata and documentation.
+`precision` is the number of decimal places in the least-significant displayed
+unit. It is an integer from 0 through 15; NMEA requires at least 1.
+Formatting uses round-half-even, retains trailing zeros, carries rounding into
+higher units, and never emits negative zero.
 
-Formatting options should cover:
+DD defaults to signed notation. DDM and DMS default to hemispheres and Unicode
+symbols. The applicable options are:
 
-- signed versus hemisphere notation where applicable;
-- latitude/longitude output order;
-- ASCII versus Unicode symbols;
-- explicit precision;
-- compact versus separated ISO 6709;
-- pair separator.
+- `notation="signed"` or `"hemisphere"` for DD, DDM, and DMS;
+- `symbols="unicode"` or `"ascii"` for DD, DDM, and DMS;
+- `compact=False` for separated ISO 6709 output;
+- `separator=", "`, `"; "`, or `" / "` for human output;
+- `separator=" "`, `","`, or `", "` for separated ISO 6709 output; and
+- `separator=","` or `"; "` for NMEA output.
 
-Defaults should be readable and round-trip safely. Do not emit negative zero. Carry rounding into minutes/degrees correctly: `59.999...` seconds must not become an invalid `60.000` output.
+ISO 6709 output is signed, zero-padded, latitude/longitude, and ends with `/`.
+NMEA output supports the four-field comma and two-component semicolon forms.
 
-### Precision policy
+`inspect_position` reports lexical angular resolution as a positive exact
+`Decimal` or `Fraction` quantum in decimal degrees where it can be inferred.
+This is source resolution, not measurement accuracy.
 
-Do not imply more source accuracy than is known.
+With `precision=None`, `convert_position` selects the smallest supported output
+precision that is no coarser than the finest known axis resolution. It uses the
+documented defaults when source resolution is unavailable. If preservation
+would require more than 15 places, conversion raises unless the caller chooses
+an explicit precision and accepts rounding.
 
-- `inspect_position` should report lexical precision or estimated angular resolution when it can be inferred from text.
-- `convert_position` should preserve at least the source resolution by default where practical.
-- `format_position(Position(...))`, where source precision is unavailable, should use a documented sensible default and accept explicit `precision=`.
-- Internal calculations remain full precision; display rounding happens only during formatting.
+## Command line
 
-## Errors and warnings
+The installed `nautipy` command exposes coordinate conversion and inspection:
 
-Provide a small exception hierarchy:
+```text
+nautipy convert VALUE [--order ORDER] [--format FORMAT] [--to FORMAT]
+    [--output-order ORDER] [--precision N] [--notation NOTATION]
+    [--symbols SYMBOLS] [--compact | --no-compact] [--separator TEXT]
+
+nautipy inspect VALUE [--order ORDER] [--format FORMAT]
+```
+
+Input and output choices match the Python API described above. `convert`
+writes one formatted position. `inspect` writes deterministic JSON containing
+the `ParseResult` fields; exact resolution values are encoded as strings.
+Invalid input produces a concise command-line error and exit status 2 without
+a traceback.
+
+Run `nautipy COMMAND --help` for option choices and defaults.
+`python -m nautipy` provides the same interface.
+
+## Errors
 
 ```text
 NautiPyError
@@ -306,68 +363,17 @@ NautiPyError
     └── AmbiguousCoordinateError
 ```
 
-An ambiguity error should include candidate interpretations and a concrete resolution, for example:
+`CoordinateParseError` covers invalid syntax, shape, and formatting options.
+`CoordinateRangeError` covers non-finite and out-of-range numeric values.
+`AmbiguousCoordinateError` exposes competing interpretations where available
+and explains which order or syntax resolves the ambiguity.
 
-```text
-Could not determine coordinate order for "8.66570, 50.12257".
-Both lat/lon and lon/lat are valid. Pass order="latlon" or order="lonlat".
-```
+## Constraints and non-goals
 
-Warnings belong in the inspection result for recoverable normalization, such as a deprecated alias. Routine whitespace or Unicode normalization should not emit Python warnings.
+Coordinate parsing and formatting use only the Python standard library,
+perform no file or network access, and do not load geodesic or scientific
+modules.
 
-## Required examples for acceptance tests
-
-The test suite must include equivalent representations of a shared reference position:
-
-```text
-50.12257, 8.66570
-+50.12257 +008.66570
-50.12257 N; 8.66570 E
-50° 7.3542' N; 8° 39.942' E
-50° 7' 21.252" N; 8° 39' 56.52" E
-+50.12257+008.66570/
-5007.3542,N,00839.9420,E
-50,12257 N; 8,66570 E
-```
-
-Also test:
-
-- hemisphere prefix and suffix;
-- lowercase and full-word directions;
-- ASCII and Unicode symbols;
-- arbitrary harmless whitespace;
-- latitude/longitude at zero and legal extrema;
-- minute/second carry during formatting;
-- GeoJSON order;
-- explicit `latlon`, `lonlat`, and `auto` behavior;
-- contradictory sign and hemisphere;
-- out-of-range degrees, minutes, and seconds;
-- NaN and infinity;
-- missing and extra fields;
-- decimal-comma ambiguity;
-- numeric pairs where both orders are plausible;
-- numeric pairs where range proves the order;
-- parse-format-parse round trips for every output format.
-
-Generated round-trip tests may use standard-library loops and deterministic random seeds. A property-testing dependency is optional, not required.
-
-## Performance and dependency constraints
-
-Coordinate parsing and formatting must:
-
-- use only the Python standard library;
-- perform no network or filesystem access;
-- import without loading NumPy, SciPy, or geodesic solver modules;
-- handle ordinary single inputs without array conversion; and
-- remain deterministic across supported platforms.
-
-## Non-goals for the coordinate module
-
-- arbitrary CRS or datum conversion;
-- UTM, MGRS, geohash, plus codes, or proprietary grids in the first modern release;
-- altitude, depth, speed, time, or full sensor-message parsing;
-- repairing arbitrary corrupted text;
-- inferring a real-world location to resolve coordinate order;
-- locale detection from operating-system settings.
-
-Additional coordinate systems should be added only when there is a concrete navigation use case, a stable specification, and a clear ambiguity policy.
+The coordinate layer does not support arbitrary CRS or datum conversion, UTM,
+MGRS, geohash, plus codes, altitude, depth, speed, time, full sensor messages,
+corrupted-text repair, or operating-system locale inference.

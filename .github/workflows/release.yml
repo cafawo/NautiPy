@@ -1,0 +1,180 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release intent
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+      - name: Validate tag, version, changelog, and PyPI availability
+        id: release
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: >-
+          python scripts/release.py validate "$GITHUB_REF_NAME"
+          --check-git
+          --default-branch "origin/$DEFAULT_BRANCH"
+          --check-pypi
+          --github-output "$GITHUB_OUTPUT"
+
+  test:
+    name: Test release source on Python ${{ matrix.python-version }}
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.14"]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e .
+      - run: python -m pip check
+      - run: python -m unittest discover -s tests -v
+
+  build:
+    name: Build release artifacts once
+    needs: [validate, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install build twine
+      - name: Build wheel and source distribution
+        run: python -m build --outdir release-bundle/packages
+      - name: Inspect distribution metadata
+        run: python -m twine check release-bundle/packages/*
+      - name: Record exact artifacts, hashes, and release notes
+        run: >-
+          python scripts/release.py prepare-artifacts "$GITHUB_REF_NAME"
+          release-bundle/packages
+          --checksums-output release-bundle/SHA256SUMS
+          --notes-output release-bundle/RELEASE_NOTES.md
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ needs.validate.outputs.version }}
+          path: release-bundle/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+  test-artifacts:
+    name: Test exact release artifacts
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ needs.validate.outputs.version }}
+          path: release-bundle
+      - name: Verify downloaded artifact hashes
+        run: >-
+          python scripts/release.py verify-artifacts "$GITHUB_REF_NAME"
+          release-bundle/packages
+          --checksums release-bundle/SHA256SUMS
+      - name: Smoke-test the wheel
+        run: python scripts/smoke_test_artifact.py release-bundle/packages/*.whl
+      - name: Smoke-test the source distribution
+        run: python scripts/smoke_test_artifact.py release-bundle/packages/*.tar.gz
+      - name: Check installed dependency consistency
+        run: |
+          python -m venv .artifact-venv
+          .artifact-venv/bin/python -m pip install release-bundle/packages/*.whl
+          .artifact-venv/bin/python -m pip check
+
+  publish:
+    name: Publish tested artifacts to PyPI
+    needs: [validate, test-artifacts]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/nautipy/${{ needs.validate.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ needs.validate.outputs.version }}
+          path: release-bundle
+      - name: Verify artifact hashes before publication
+        working-directory: release-bundle
+        run: sha256sum --check SHA256SUMS
+      - name: Publish package distributions
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          packages-dir: release-bundle/packages/
+
+  github-release:
+    name: Create GitHub Release
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-${{ needs.validate.outputs.version }}
+          path: release-bundle
+      - name: Verify artifact hashes before creating the release
+        working-directory: release-bundle
+        run: sha256sum --check SHA256SUMS
+      - name: Create release from the tested artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          release_flags=(
+            --verify-tag
+            --title "NautiPy ${VERSION}"
+            --notes-file release-bundle/RELEASE_NOTES.md
+          )
+          if [[ "${PRERELEASE}" == "true" ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            release-bundle/packages/*.whl \
+            release-bundle/packages/*.tar.gz \
+            release-bundle/SHA256SUMS \
+            "${release_flags[@]}"

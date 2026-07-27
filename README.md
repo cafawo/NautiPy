@@ -1,134 +1,168 @@
 # NautiPy
 
-**A small Python package for effortless coordinate handling and trustworthy WGS84 navigation calculations.**
+**Easy coordinate handling, trustworthy WGS84 navigation, and diagnosed
+position fixes in one Python package.**
 
-> **Status:** clean pre-release rewrite. The experimental code previously in this repository is being replaced and is not a supported API. The first public package will start at version `0.1.0`.
+> **Pre-release status:** NautiPy `0.1.0` has not been published to PyPI yet.
+> Install it from a repository checkout as shown below. Once the first release
+> is successfully published, `python -m pip install nautipy` will become
+> available.
 
-## What NautiPy is for
+NautiPy accepts the coordinate formats people commonly paste or type, converts
+them into a validated `Position`, and provides navigation and position-fixing
+tools without silently guessing when an input is ambiguous.
 
-NautiPy focuses on the path from messy coordinate input to a validated, useful position:
+## Install from this checkout
 
-```text
-paste or receive coordinates
-          ↓
-automatically detect and validate them
-          ↓
-convert, inspect, exchange, or calculate navigation values
+Use a Python version accepted by the
+[`requires-python` setting](pyproject.toml). Clone the repository, enter its
+directory, and create a virtual environment with that interpreter.
+
+On macOS or Linux:
+
+```console
+git clone https://github.com/cafawo/NautiPy.git
+cd NautiPy
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install .
 ```
 
-The main value is:
+On Windows PowerShell:
 
-- automatic detection of common coordinate formats;
-- clear errors when latitude/longitude order or syntax is genuinely ambiguous;
-- conversion among decimal degrees, DDM, DMS, ISO 6709, and NMEA fields;
-- a small immutable `Position` model;
-- WGS84 distance, bearing, destination, and interpolation; and
-- a lightweight installation without a general GIS or scientific stack.
+```console
+git clone https://github.com/cafawo/NautiPy.git
+cd NautiPy
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install .
+```
 
-A bearing/range position-fix engine is planned later as an optional extra so ordinary users do not install NumPy and SciPy unnecessarily.
+The `python3.12` and `py -3.12` commands are examples; another installed Python
+from the supported range works as well. The installation includes
+GeographicLib, NumPy, and SciPy, so every feature is available immediately.
 
-## Target 0.1 API
+## Quick start
 
-The examples below describe the intended first public release and will be converted into tested examples as milestones land.
-
-### Parse whatever notation you have
+### Parse and convert coordinates
 
 ```python
-from nautipy import parse_position
+from nautipy import convert_position, parse_position
 
 p1 = parse_position("50.12257, 8.66570")
 p2 = parse_position("50° 7.3542' N; 8° 39.942' E")
 p3 = parse_position("+50.12257+008.66570/")
 
 assert p1 == p2 == p3
-```
-
-### Inspect what was detected
-
-```python
-from nautipy import inspect_position
-
-result = inspect_position("5007.3542,N,00839.9420,E")
-print(result.position)
-print(result.format)
-print(result.normalizations)
-```
-
-### Convert formats
-
-```python
-from nautipy import convert_position
-
-text = convert_position(
+assert convert_position(
     "50.12257, 8.66570",
     to="dms",
-    precision=2,
-)
+) == "50° 7′ 21.25″ N; 8° 39′ 56.52″ E"
 ```
 
-### Calculate navigation values
+Detection covers decimal degrees (DD), degrees and decimal minutes (DDM),
+degrees/minutes/seconds (DMS), two-dimensional ISO 6709, and NMEA coordinate
+field pairs. Use `order="lonlat"` for unmarked longitude-first input.
+`order="auto"` accepts hard axis evidence or equivalent source orders;
+otherwise it raises `AmbiguousCoordinateError`.
+
+### Calculate WGS84 navigation values
 
 ```python
-from nautipy import destination, distance, initial_bearing
+from nautipy import destination, distance, inverse
 
 start = "50.12257, 8.66570"
 end = destination(start, bearing=90, distance=12_000)
 
-print(distance(start, end))
-print(initial_bearing(start, end))
+assert abs(distance(start, end) - 12_000) < 1e-6
+
+result = inverse(start, end)
+print(result.initial_bearing)
+print(result.final_bearing)
 ```
 
-Distances use metres and bearings use true degrees by default.
+Distances are in metres and bearings are true degrees clockwise from north.
+Calculations use WGS84 ellipsoidal geodesics through GeographicLib.
 
-## Input philosophy
-
-NautiPy is permissive about presentation and strict about meaning.
-
-It should handle harmless variation in whitespace, Unicode symbols, decimal separators, and hemisphere placement. It must not silently choose between two valid locations.
+### Estimate a position from observations
 
 ```python
-parse_position("120, 50", order="auto")  # longitude/latitude is provable
-parse_position("8, 50", order="auto")    # raises AmbiguousCoordinateError
+from nautipy import Position, RangeObservation, solve_fix
+
+references = (
+    Position(50.116135, 8.670277),
+    Position(50.112836, 8.666753),
+    Position(50.110347, 8.659873),
+)
+ranges = tuple(
+    RangeObservation(reference, measured, uncertainty=2.0)
+    for reference, measured in zip(
+        references,
+        (1_275.251, 1_599.237, 1_917.145),
+    )
+)
+
+result = solve_fix(ranges=ranges)
+if result.success:
+    print(result.position)
+else:
+    print(result.status, result.competing_positions)
 ```
 
-## Lightweight architecture
+Bearing, range, and mixed-observation fixes report residuals, convergence, and
+geometry diagnostics. A successful optimization does not by itself guarantee
+good observation geometry, so callers should inspect the complete result.
 
-The package is deliberately layered:
+### Use the command line
 
-- **coordinates:** Python standard library only;
-- **normal navigation:** at most one focused pure-Python WGS84 dependency;
-- **advanced fixes:** optional `nautipy[fix]` extra in a later release.
+```console
+$ nautipy convert "50° 7.3542' N; 8° 39.942' E" --to dd
+50.122570, 8.665700
 
-NautiPy will not require pyproj, Shapely, pandas, NumPy, or SciPy for ordinary coordinate and navigation use.
+$ nautipy inspect "+50.12257+008.66570/"
+```
 
-## Scope boundaries
+`inspect` writes deterministic JSON describing the detected format,
+normalizations, resolution, and candidate interpretations. `python -m nautipy`
+provides the same interface.
 
-NautiPy is not intended to provide general CRS transformation, chart display, route planning, AIS, live GPS connections, magnetic models, tides, weather, plotting, a GUI, or a web service.
+## What is included
 
-It is a calculation library, not certified navigation equipment.
+- coordinate parsing, inspection, formatting, and conversion;
+- an immutable, validated `Position` model;
+- WGS84 distance, bearing, destination, interpolation, and nearest-position
+  calculations;
+- diagnosed bearing, range, and mixed-observation fixes;
+- GeoJSON Point and FeatureCollection interchange; and
+- offline `convert` and `inspect` commands.
 
-## Development
+NautiPy is deliberately not a general GIS framework, charting application,
+route planner, live-data client, or certified navigation system.
 
-The repository-local plan is designed for both human contributors and coding agents:
+## Documentation
 
-- [Coding-agent guide](AGENTS.md)
+For using NautiPy:
+
+- [Coordinate input and conversion](docs/COORDINATES.md)
+- [WGS84 navigation](docs/NAVIGATION.md)
+- [Bearing and range position fixes](docs/FIXES.md)
+- [GeoJSON interchange](docs/GEOJSON.md)
+- [Support and API stability](docs/SUPPORT.md)
+
+For contributing and maintaining the project:
+
+- [Contribution guide](CONTRIBUTING.md)
 - [Product direction](docs/PRODUCT.md)
 - [Architecture and dependency policy](docs/ARCHITECTURE.md)
-- [Coordinate detection and conversion specification](docs/COORDINATES.md)
 - [Implementation roadmap](ROADMAP.md)
-- [Release and distribution plan](docs/RELEASING.md)
-- [Contribution guide](CONTRIBUTING.md)
+- [Release procedure](docs/RELEASING.md)
+- [Changelog](CHANGELOG.md)
 
-The first implementation milestone replaces the experimental project with a clean `src/` package, immutable `Position`, decimal-degree parsing and formatting, standard-library tests, package builds, and CI. It intentionally provides no compatibility layer for the old code.
+Please report ordinary bugs through the
+[issue tracker](https://github.com/cafawo/NautiPy/issues). Report suspected
+security problems privately according to [SECURITY.md](SECURITY.md).
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Distribution plan
-
-After the 0.1 feature set passes artifact tests:
-
-1. an intentional semantic-version tag triggers GitHub Actions;
-2. the workflow validates, builds, and tests the exact wheel and sdist;
-3. those artifacts are published to PyPI through Trusted Publishing;
-4. the same artifacts are attached to a GitHub Release; and
-5. the stable PyPI sdist is submitted to conda-forge through staged-recipes.
-
-Merging a pull request never publishes a package.
+NautiPy is available under the [MIT License](LICENSE.txt).

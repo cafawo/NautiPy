@@ -2,219 +2,164 @@
 
 ## Goal
 
-NautiPy should be easy to install, easy to understand, and useful without pulling a GIS or scientific-computing stack into every environment.
-
-The architecture follows the user journey:
+NautiPy supports two connected workflows:
 
 ```text
 messy coordinate input
         ↓
 validated Position
+        ├──→ format conversion or GeoJSON interchange
+        └──→ WGS84 navigation
+
+reference Positions + bearing/range observations
         ↓
-format conversion or WGS84 navigation
-        ↓
-optional bearing/range fix
+diagnosed position fix
 ```
 
-The repository is a clean rewrite. The old implementation does not define module boundaries, public names, or compatibility requirements.
+One ordinary installation provides the complete package. Internal layers keep
+simple coordinate work independent from geodesic and scientific imports.
 
-## Package layers
+## Runtime layers
 
-### 1. Coordinate core — standard library only
+### Coordinate layer
 
-This layer provides:
+The coordinate layer uses only the Python standard library. It owns:
 
 - immutable `Position` values;
-- coordinate normalization and detection;
-- parsing and validation;
-- formatting and conversion;
-- parser inspection metadata;
-- coordinate-specific exceptions; and
-- GeoJSON Point and FeatureCollection interchange.
+- coordinate normalization, detection, parsing, and validation;
+- formatting, conversion, and inspection metadata;
+- coordinate exceptions;
+- two-dimensional GeoJSON interchange; and
+- coordinate conversion and inspection CLI plumbing.
 
-It must not import GeographicLib, NumPy, SciPy, pandas, pyproj, Shapely, or network clients.
+It does not import GeographicLib, NumPy, SciPy, GIS frameworks, dataframe
+libraries, or network clients. GeoJSON code works with ordinary mappings;
+callers use the standard-library `json` module for text or files.
 
-Typical public functions:
+See [COORDINATES.md](COORDINATES.md) and [GEOJSON.md](GEOJSON.md).
 
-```python
-parse_position(...)
-inspect_position(...)
-format_position(...)
-convert_position(...)
-```
+### Navigation layer
 
-### 2. Navigation core — one focused dependency
+The navigation layer uses GeographicLib for WGS84 inverse, direct, and
+geodesic-line calculations. It owns:
 
-This layer provides:
-
-- inverse geodesics: distance and initial/final bearings;
-- direct geodesics: destination from position, bearing, and distance;
-- interpolation along a geodesic; and
+- distance and initial/final bearings;
+- destinations;
+- interpolation; and
 - nearest-position lookup for ordinary iterables.
 
-Use one mature, pure-Python implementation of WGS84 geodesics rather than maintaining approximate formulas. GeographicLib is the preferred candidate unless implementation work demonstrates a better fit.
+NautiPy does not maintain a second spherical backend or depend on a broad GIS
+framework for these operations. GeographicLib is imported only when a
+navigation or fix calculation needs it.
 
-The dependency is part of the normal `nautipy` installation only when the navigation API ships. Do not add a broad CRS/GIS framework merely for direct and inverse geodesics.
+See [NAVIGATION.md](NAVIGATION.md).
 
-### 3. Fix engine — optional extra
+### Fix layer
 
-The fix engine is valuable but materially heavier. Ship it only after the coordinate and navigation layers are stable.
+Public observation models, statuses, result models, and lightweight validation
+are NautiPy-owned types. The numerical solver uses:
 
-Proposed installation:
+- NumPy for arrays and linear algebra;
+- SciPy for bounded nonlinear least squares; and
+- GeographicLib for exact WGS84 bearing and range predictions.
 
-```bash
-python -m pip install "nautipy[fix]"
-```
+The solver works in bounded local east/north metre coordinates while evaluating
+returned positions and residuals on WGS84. NumPy, SciPy, GeographicLib, and the
+private solver module are loaded only when a candidate or fix calculation
+requires them.
 
-The extra may contain NumPy and SciPy for:
+See [FIXES.md](FIXES.md).
 
-- overdetermined bearing-only fixes;
-- range-only fixes;
-- mixed bearing/range fixes;
-- weighted residuals;
-- covariance or confidence estimates; and
-- geometry diagnostics.
+## Import boundaries
 
-Coordinate and navigation imports must continue to work when the optional extra is absent. Calling optional functionality without its dependencies should raise one short error with the exact installation command.
+Import boundaries are a tested design property:
 
-## Dependency budget
+- importing `nautipy`, parsing or formatting coordinates, using coordinate
+  models, or importing the CLI does not load GeographicLib, NumPy, SciPy, or
+  the private numerical solver;
+- requesting a navigation calculation loads GeographicLib but not NumPy or
+  SciPy; and
+- requesting candidate geometry or `solve_fix` loads the numerical solver and
+  its scientific dependencies.
 
-### Normal installation
+The dependencies are installed in every environment; lazy imports preserve
+separation of concerns and startup cost, not separate product variants.
 
-Target at first public release:
+## Dependency policy
 
-- Python standard library;
-- at most one runtime dependency, used for WGS84 geodesics.
+`pyproject.toml` is the dependency source of truth. The current direct runtime
+dependencies are:
 
-### Optional fix installation
+- GeographicLib for WGS84 geodesics;
+- NumPy for numerical arrays and linear algebra; and
+- SciPy for nonlinear least-squares optimization.
 
-- NumPy;
-- SciPy;
-- no additional optimization framework unless a demonstrated requirement cannot be met by SciPy.
+Do not add dependencies for validation, units, logging, argument parsing, JSON,
+formatting, HTTP, development convenience, or an abstraction with only one
+implementation.
 
-### Development and release tooling
+Before adding a runtime dependency, establish:
 
-Prefer:
+1. which shipped user-facing feature requires it;
+2. what correctness or maintenance risk it removes;
+3. why the standard library and existing dependencies are insufficient;
+4. whether its imports remain outside coordinate-only use;
+5. whether it supports every Python version and platform declared by NautiPy;
+   and
+6. how built-artifact tests exercise it.
 
-- `unittest` for tests;
-- `build` for wheel/sdist creation;
-- GitHub Actions for CI and release automation; and
-- PyPI Trusted Publishing for deployment.
+If those answers are weak, do not add the dependency.
 
-Do not make Poetry, uv, Conda, Make, Docker, pre-commit, a Unix shell, or an editor extension mandatory. Contributors may use them locally.
+## Public API ownership
 
-## Dependency admission checklist
+The package and public-module `__all__` values define the intentional import
+surface:
 
-Before adding a runtime dependency, answer all of the following in the pull request:
+- `nautipy` exposes the common coordinate, navigation, and fixing API;
+- `nautipy.geojson` exposes specialized GeoJSON helpers without expanding the
+  top-level namespace; and
+- public submodules may expose documented typing aliases and related names for
+  advanced users.
 
-1. Which shipped user-facing feature needs it?
-2. What correctness or maintenance risk does it remove?
-3. Why is the standard library or an existing dependency insufficient?
-4. Can it be isolated in an optional extra?
-5. Does it support the Python versions and platforms declared by NautiPy?
-6. Does importing coordinate-only functionality avoid importing it?
+Modules and names beginning with an underscore are private. Third-party result
+objects, parser internals, optimizer state, and backend dictionaries never
+become public results.
 
-If the answers are weak, do not add the dependency.
-
-## Initial module layout
-
-Start small and split only when a module has a clear independent responsibility:
-
-```text
-src/
-└── nautipy/
-    ├── __init__.py
-    ├── position.py
-    ├── coordinates.py
-    ├── errors.py
-    ├── geodesic.py       # added with the navigation milestone
-    ├── geojson.py        # added when interchange ships
-    ├── cli.py            # added only if the CLI ships
-    └── fix.py            # added with the optional fix extra
-```
-
-Parser internals may later move into a private `nautipy._coordinates` package when separate normalization, candidate parsing, and formatting modules make the code clearer. Do not create that hierarchy before it is needed.
-
-Tests mirror public behavior rather than internal file structure:
-
-```text
-tests/
-├── test_position.py
-├── test_coordinates.py
-├── test_geodesic.py
-├── test_geojson.py
-└── test_fix.py
-```
-
-## Public API
-
-The top-level namespace should contain the small set most users need. The exact list is reviewed before each pre-1.0 release.
-
-Target 0.1 surface:
-
-```python
-Position
-ParseResult
-
-parse_position
-inspect_position
-format_position
-convert_position
-
-distance
-initial_bearing
-destination
-interpolate
-
-NautiPyError
-CoordinateError
-CoordinateParseError
-CoordinateRangeError
-AmbiguousCoordinateError
-```
-
-Detailed parser helpers, token types, backend objects, and third-party result values remain private.
-
-All functions accepting a location should support `Position`. Functions may also accept documented position-like values by passing them through one shared coercion function. Do not duplicate parsing logic in geodesic or GeoJSON modules.
+Functions consuming locations share `Position` and the documented
+`PositionInput` forms where accepting those forms is unambiguous. Parsing logic
+is centralized rather than duplicated in navigation, fixing, or interchange
+code. `format_position` deliberately accepts a validated `Position`;
+`convert_position` is the parse-and-format convenience API.
 
 ## Data conventions
 
-- Latitude and longitude: finite decimal-degree `float` values.
-- Latitude range: `[-90, 90]`.
-- Longitude input range: `[-180, 180]`; invalid user input is not silently wrapped.
-- Distance: metres internally.
-- Bearing: degrees clockwise from true north, normalized to `[0, 360)` for generated results.
-- Earth model: WGS84 for public navigation defaults.
-- Display rounding: only at formatting boundaries.
+- Latitude and longitude are finite decimal-degree `float` values.
+- User latitude is in `[-90, 90]`; user longitude is in `[-180, 180]`.
+- Invalid input is rejected rather than wrapped or silently reordered.
+- Distances are metres internally.
+- Bearings are true degrees clockwise from north and generated bearings are
+  normalized to `[0, 360)`.
+- Navigation and fixing use WGS84.
+- Display rounding occurs only at formatting boundaries.
+- Optional position metadata does not affect coordinate equality or hashing.
 
-## Error design
+## Error and result design
 
-Caller errors use a small documented exception hierarchy. Messages should explain how to correct the input.
+Caller errors use the documented NautiPy exception hierarchy and explain how
+to correct invalid input where practical. Public validation never relies on
+`assert`.
 
-Recoverable parser details belong in `ParseResult`, not in global logging or routine Python warnings. Numerical result objects should distinguish successful convergence from good geometry; the two are not equivalent.
+Recoverable parser information belongs in `ParseResult`, not global logging or
+routine Python warnings. Numerical result objects distinguish convergence,
+uniqueness, geometry quality, and fit quality; a successful optimizer step is
+not by itself a trustworthy fix.
 
-## Deliberate omissions
+## Packaging
 
-Do not add:
+NautiPy uses PEP 517/PEP 621 metadata, setuptools, and a `src/` package layout.
+The NautiPy wheel itself is platform-independent; NumPy and SciPy may install
+platform-specific dependency wheels. The `nautipy` console entry point uses the
+standard-library CLI implementation.
 
-- backwards-compatibility wrappers for the experimental repository code;
-- a plugin architecture or selectable geodesic backends;
-- a general units framework;
-- generic CRS support;
-- dataframe-specific return types;
-- a network service or remote data lookup;
-- global configuration; or
-- import-time environment detection.
-
-These omissions are part of the lightweight design, not missing scaffolding.
-
-## Packaging shape
-
-- PEP 517/PEP 621 metadata in `pyproject.toml`.
-- Standard setuptools build backend.
-- `src/` layout.
-- Pure-Python wheel (`py3-none-any`) while the project contains no compiled code.
-- Static package version in project metadata until a more complex mechanism proves necessary.
-- Wheel and sdist built once per release and tested before publishing.
-
-The package should begin at version `0.1.0` for its first public release. Repository experiments that were never distributed do not require a higher starting version or migration path.
+Build and release procedure belongs in [RELEASING.md](RELEASING.md). Supported
+API and versioning policy belongs in [SUPPORT.md](SUPPORT.md).

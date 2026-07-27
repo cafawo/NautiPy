@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nautipy"
+version = "0.1.0"
+description = "Coordinate conversion, WGS84 navigation, and position fixing"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [
+  { name = "CFW", email = "cfw@pm.me" },
+]
+maintainers = [
+  { name = "NautiPy Developers" },
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dependencies = [
+  "geographiclib>=2.1",
+  "numpy>=1.23.5",
+  "scipy>=1.14.1",
+]
+
+[project.scripts]
+nautipy = "nautipy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/cafawo/NautiPy"
+Documentation = "https://github.com/cafawo/NautiPy#readme"
+Issues = "https://github.com/cafawo/NautiPy/issues"
+Source = "https://github.com/cafawo/NautiPy"
+Changelog = "https://github.com/cafawo/NautiPy/blob/master/CHANGELOG.md"
+Contributing = "https://github.com/cafawo/NautiPy/blob/master/CONTRIBUTING.md"
+"Code of Conduct" = "https://github.com/cafawo/NautiPy/blob/master/CODE_OF_CONDUCT.md"
+Security = "https://github.com/cafawo/NautiPy/security/policy"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nautipy = ["py.typed"]

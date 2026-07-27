@@ -1,38 +1,61 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
-
+about: Report reproducible incorrect behavior in NautiPy
+title: ""
+labels: ""
+assignees: ""
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Summary
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+Describe what went wrong and which NautiPy workflow is affected.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+## Minimal reproduction
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+Provide the smallest runnable Python example or command-line invocation that
+shows the problem. Use synthetic coordinates if the real positions are
+private.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+```python
+# Your example here
+```
 
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+## Expected behavior
 
-**Additional context**
-Add any other context about the problem here.
+Describe the expected result. For numerical reports, include the units,
+tolerance, and an independent reference or derivation when available.
+
+## Actual behavior
+
+Include the complete exception and traceback or the unexpected result.
+
+```text
+Paste output here
+```
+
+## Environment
+
+- NautiPy version or commit:
+- Python version:
+- Operating system and architecture:
+- GeographicLib version:
+- NumPy version:
+- SciPy version:
+- Installation method:
+
+`python -m pip show nautipy geographiclib numpy scipy` can provide most package
+versions.
+
+## Coordinate and numerical context
+
+When relevant, include the input format, coordinate order, units, observation
+uncertainties, search bounds, and any assumptions used to interpret the data.
+
+## Additional context
+
+Add anything else that helps reproduce or diagnose the problem.
+
+Do not file suspected vulnerabilities, credentials, or private position data
+here. Follow the
+[security policy](https://github.com/cafawo/NautiPy/security/policy) for
+private reporting.
