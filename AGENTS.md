@@ -147,6 +147,11 @@ private—for example, a refactor with identical observable behavior—do not ma
 a meaningless documentation edit. Instead, state `Documentation impact: none`
 with the concrete reason in the pull request or final handoff.
 
+Keep the README badges accurate when CI workflow paths, the default branch,
+PyPI metadata, supported Python versions, typing status, the license, or the
+documentation URL changes. Display only badges backed by a maintained check or
+authoritative metadata source.
+
 An agent must not report a public functionality change as complete when only
 tests or a behavior specification changed while the educational site remains
 stale.

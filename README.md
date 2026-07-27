@@ -1,7 +1,17 @@
 # NautiPy
 
+[![CI](https://github.com/cafawo/NautiPy/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/cafawo/NautiPy/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/nautipy)](https://pypi.org/project/nautipy/)
+[![Python](https://img.shields.io/pypi/pyversions/nautipy)](https://pypi.org/project/nautipy/)
+[![Typing](https://img.shields.io/pypi/types/nautipy)](https://pypi.org/project/nautipy/)
+[![License](https://img.shields.io/pypi/l/nautipy)](https://github.com/cafawo/NautiPy/blob/master/LICENSE.txt)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://wbk.ing/NautiPy/)
+
 **Easy coordinate handling, trustworthy WGS84 navigation, and diagnosed
 position fixes in one Python package.**
+
+Explore the [educational guide and interactive Fix
+Lab](https://wbk.ing/NautiPy/) for visual explanations and worked examples.
 
 NautiPy accepts the coordinate formats people commonly paste or type, converts
 them into a validated `Position`, and provides navigation and position-fixing

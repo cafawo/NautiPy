@@ -4,6 +4,8 @@ Notable user-facing changes to NautiPy are recorded here.
 
 ## Unreleased
 
+## 0.2.0 - 2026-07-27
+
 ### Added
 
 - Added an education-first GitHub Pages site with original diagrams, a
