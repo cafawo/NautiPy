@@ -4,6 +4,8 @@ Notable user-facing changes to NautiPy are recorded here.
 
 ## Unreleased
 
+## 0.1.0 - 2026-07-27
+
 ### Added
 
 - Added an immutable, validated `Position` model and actionable coordinate
@@ -39,6 +41,8 @@ Notable user-facing changes to NautiPy are recorded here.
   scientific implementations during coordinate-only use.
 - Reorganized project documentation around the implemented 0.1 baseline, a
   concise contributor path, and the actual maintainer release workflow.
+- Defined PyPI as the only maintained package index and documented a direct
+  sole-maintainer release path.
 
 ### Fixed
 

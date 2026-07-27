@@ -38,17 +38,16 @@ another feature area.
 
 - [x] Keep user, contributor, architecture, support, and release documentation
   consistent with the implemented API.
-- [ ] Merge the release candidate through a pull request with the required
+- [x] Merge the release candidate through a pull request with the required
   `CI success` check passing.
-- [ ] Prepare a focused release pull request that confirms the version and
+- [x] Prepare a focused release commit that confirms the version and
   moves reviewed notes into the exact dated changelog section required by the
   release validator.
 
 ### Maintainer release work
 
-- [ ] Confirm the PyPI project or pending Trusted Publisher, protected `pypi`
-  environment, and default-branch protection described in
-  [docs/RELEASING.md](docs/RELEASING.md).
+- [x] Configure the pending PyPI Trusted Publisher and protected `pypi`
+  environment described in [docs/RELEASING.md](docs/RELEASING.md).
 - [ ] Create and push an annotated `v0.1.0` tag only from the merged
   default-branch release commit.
 - [ ] Verify the tested wheel and source distribution on PyPI and the matching

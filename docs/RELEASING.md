@@ -76,9 +76,9 @@ commit:
    it does not reserve the project name beforehand. If the project already
    exists and is controlled by the maintainers, configure the same identity
    from that project's **Manage → Publishing** page instead.
-4. Protect the default branch and require the always-running `CI success` check.
-   Requiring only a dependent job is insufficient because it may be skipped
-   after an upstream failure.
+4. Keep CI enabled for pull requests and default-branch pushes. If branch
+   protection is used, require the always-running `CI success` check. Branch
+   protection is optional for a sole-maintainer repository.
 5. Under **Settings → Actions → General**, ensure Actions are enabled and, if
    an action allowlist is used, permit the pinned `actions/*` actions and
    `pypa/gh-action-pypi-publish`. Keep the repository's default workflow
@@ -91,9 +91,11 @@ commit:
 TestPyPI is optional. Use it only for a specific check not already provided by
 the clean artifact tests.
 
-## Prepare the release pull request
+## Prepare the release commit
 
-Make release preparation a focused pull request:
+Prepare the release on an up-to-date default branch. A sole maintainer may
+commit it directly; a team may prefer a focused pull request. Neither path
+publishes to PyPI.
 
 1. Confirm that the target in [ROADMAP.md](../ROADMAP.md) is complete and the
    default branch is green.
@@ -149,11 +151,12 @@ Make release preparation a focused pull request:
 
    Replace `vX.Y.Z` with the intended tag. `--check-git` is intentionally
    omitted until the annotated tag exists.
-8. Merge only after review and the required `CI success` check passes.
+8. Commit and push the preparation to the default branch, then wait for its
+   `CI success` check. Do not create the release tag if that check fails.
 
 ## Create the release tag
 
-Tag the merged default-branch commit, not a pull-request branch:
+Tag the tested default-branch commit, not a pull-request branch:
 
 ```bash
 git switch master

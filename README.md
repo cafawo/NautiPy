@@ -3,46 +3,22 @@
 **Easy coordinate handling, trustworthy WGS84 navigation, and diagnosed
 position fixes in one Python package.**
 
-> **Pre-release status:** NautiPy `0.1.0` has not been published to PyPI yet.
-> Install it from a repository checkout as shown below. Once the first release
-> is successfully published, `python -m pip install nautipy` will become
-> available.
-
 NautiPy accepts the coordinate formats people commonly paste or type, converts
 them into a validated `Position`, and provides navigation and position-fixing
 tools without silently guessing when an input is ambiguous.
 
-## Install from this checkout
+## Install
 
 Use a Python version accepted by the
-[`requires-python` setting](pyproject.toml). Clone the repository, enter its
-directory, and create a virtual environment with that interpreter.
-
-On macOS or Linux:
+[`requires-python` setting](https://github.com/cafawo/NautiPy/blob/master/pyproject.toml),
+then install the complete package from PyPI:
 
 ```console
-git clone https://github.com/cafawo/NautiPy.git
-cd NautiPy
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install .
+python -m pip install nautipy
 ```
 
-On Windows PowerShell:
-
-```console
-git clone https://github.com/cafawo/NautiPy.git
-cd NautiPy
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install .
-```
-
-The `python3.12` and `py -3.12` commands are examples; another installed Python
-from the supported range works as well. The installation includes
-GeographicLib, NumPy, and SciPy, so every feature is available immediately.
+The installation includes GeographicLib, NumPy, and SciPy, so every feature is
+available immediately.
 
 ## Quick start
 
@@ -145,24 +121,27 @@ route planner, live-data client, or certified navigation system.
 
 For using NautiPy:
 
-- [Coordinate input and conversion](docs/COORDINATES.md)
-- [WGS84 navigation](docs/NAVIGATION.md)
-- [Bearing and range position fixes](docs/FIXES.md)
-- [GeoJSON interchange](docs/GEOJSON.md)
-- [Support and API stability](docs/SUPPORT.md)
+- [Coordinate input and conversion](https://github.com/cafawo/NautiPy/blob/master/docs/COORDINATES.md)
+- [WGS84 navigation](https://github.com/cafawo/NautiPy/blob/master/docs/NAVIGATION.md)
+- [Bearing and range position fixes](https://github.com/cafawo/NautiPy/blob/master/docs/FIXES.md)
+- [GeoJSON interchange](https://github.com/cafawo/NautiPy/blob/master/docs/GEOJSON.md)
+- [Support and API stability](https://github.com/cafawo/NautiPy/blob/master/docs/SUPPORT.md)
 
 For contributing and maintaining the project:
 
-- [Contribution guide](CONTRIBUTING.md)
-- [Product direction](docs/PRODUCT.md)
-- [Architecture and dependency policy](docs/ARCHITECTURE.md)
-- [Implementation roadmap](ROADMAP.md)
-- [Release procedure](docs/RELEASING.md)
-- [Changelog](CHANGELOG.md)
+- [Contribution guide](https://github.com/cafawo/NautiPy/blob/master/CONTRIBUTING.md)
+- [Product direction](https://github.com/cafawo/NautiPy/blob/master/docs/PRODUCT.md)
+- [Architecture and dependency policy](https://github.com/cafawo/NautiPy/blob/master/docs/ARCHITECTURE.md)
+- [Implementation roadmap](https://github.com/cafawo/NautiPy/blob/master/ROADMAP.md)
+- [Release procedure](https://github.com/cafawo/NautiPy/blob/master/docs/RELEASING.md)
+- [Changelog](https://github.com/cafawo/NautiPy/blob/master/CHANGELOG.md)
 
 Please report ordinary bugs through the
 [issue tracker](https://github.com/cafawo/NautiPy/issues). Report suspected
-security problems privately according to [SECURITY.md](SECURITY.md).
-Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+security problems through the
+[security policy](https://github.com/cafawo/NautiPy/security/policy).
+Participation is governed by the
+[Code of Conduct](https://github.com/cafawo/NautiPy/blob/master/CODE_OF_CONDUCT.md).
 
-NautiPy is available under the [MIT License](LICENSE.txt).
+NautiPy is available under the
+[MIT License](https://github.com/cafawo/NautiPy/blob/master/LICENSE.txt).
