@@ -19,6 +19,13 @@ change without changing these guarantees.
 ```text
 parse_position(value, *, order="latlon", format=None) -> Position
 inspect_position(value, *, order="latlon", format=None) -> ParseResult
+inspect_positions(
+    values,
+    *,
+    order="latlon",
+    format=None,
+    errors="collect",
+) -> BatchInspectionResult
 format_position(
     position,
     *,
@@ -53,6 +60,9 @@ from nautipy import parse_position
 position = parse_position("50° 7.3542' N; 8° 39.942' E")
 ```
 
+`inspect_positions` applies the scalar inspection contract to each item from
+an ordinary iterable while preserving successful diagnostics and coordinate
+failures.
 `format_position` accepts an already validated `Position`.
 `convert_position` combines parsing and formatting for other position-like
 inputs.
@@ -64,7 +74,7 @@ retaining common normalization and full validation.
 `PositionInput` is the public typing alias for accepted position text,
 two-value sequences, named mappings, GeoJSON Points, and `Position` itself.
 The `nautipy.coordinates` module also exposes typing aliases for coordinate
-format and order values.
+format and order values, `BatchErrorMode`, and `BatchInspectionItem`.
 
 ## Position and inspection results
 
@@ -98,6 +108,80 @@ or inferred source resolution.
 The `warnings` field is reserved for recoverable concerns; current harmless
 normalizations, including the `dmm` alias, are reported in `normalizations`
 rather than as warnings.
+
+### Batch inspection results
+
+`inspect_positions` returns an immutable `BatchInspectionResult`. Its `items`
+tuple contains one immutable record for each yielded input, in source order:
+
+- `BatchInspectionSuccess(index, result)` holds the zero-based source `index`
+  and the scalar `ParseResult`;
+- `BatchInspectionFailure(index, error_type, message, candidates)` holds the
+  zero-based source `index`, the public `CoordinateError` subclass, its
+  message, and any competing `CandidateDiagnostic` records; and
+- `BatchInspectionItem` is the
+  `BatchInspectionSuccess | BatchInspectionFailure` typing alias.
+
+`BatchInspectionSuccess`, `BatchInspectionFailure`, and
+`BatchInspectionResult` are available from both `nautipy` and
+`nautipy.coordinates`. `BatchInspectionItem` and the `BatchErrorMode` alias
+for `"collect"` and `"raise"` are available from `nautipy.coordinates`.
+
+The result provides derived, read-only `total_count`, `parsed_count`,
+`ambiguous_count`, and `invalid_count` properties. Ambiguous failures are
+those whose `error_type` is an `AmbiguousCoordinateError` subclass;
+`invalid_count` covers every other coordinate failure. Therefore:
+
+```text
+total_count == parsed_count + ambiguous_count + invalid_count
+```
+
+With `errors="collect"`, the default, every yielded record is inspected.
+Successful and failed records remain in their original positions; nothing is
+silently dropped. With `errors="raise"`, inspection stops at the first
+coordinate failure and raises the same public exception subclass. Its message
+identifies the zero-based `positions[index]`, and an
+`AmbiguousCoordinateError` retains its competing candidates. The original
+scalar exception is retained as the raised exception's `__cause__`. Scalar
+`inspect_position` behavior is unchanged. If every record succeeds, both modes
+return the same success-only batch result.
+
+The `order` and `format` options apply uniformly to every record. All options
+are validated before iteration, including for an empty iterable. The default
+remains `order="latlon"`; callers should select `order="auto"` only when each
+otherwise ambiguous record contains hard axis evidence. An empty iterable
+returns an empty result whose four counts are zero.
+
+The outer argument must be an iterable of position inputs. A `str`, `bytes`,
+`bytearray`, `Position`, or mapping is a scalar or structured value rather
+than a batch and is rejected as the outer argument. Every other sequence is
+treated as the batch itself, including a sequence of length two. Numeric
+position pairs must therefore be nested:
+
+```python
+from nautipy import inspect_positions
+
+batch = inspect_positions([
+    (50.12257, 8.66570),
+    (51.0, 9.0),
+])
+```
+
+The iterable is consumed at most once. A non-iterable outer input, including a
+`TypeError` while obtaining its iterator, produces `CoordinateParseError`.
+Once the iterator has been obtained, an exception raised while advancing it
+is not a record-level coordinate failure and propagates unchanged in both
+modes. For a yielded record, only `CoordinateError` follows the selected
+collect-or-raise policy; another exception propagates unchanged.
+
+Direct construction of the public models uses the same coordinate-error
+validation style. Indices must be non-negative integers; success records
+require a `ParseResult`; failure records require a `CoordinateError` subclass
+and string message. Failure candidates are normalized to a tuple and may be
+non-empty only for an `AmbiguousCoordinateError` subclass.
+`BatchInspectionResult` normalizes its item iterable to a tuple and requires
+contiguous indices matching item order. Invalid model values raise
+`CoordinateParseError`.
 
 ## Accepted position forms
 
@@ -366,13 +450,15 @@ NautiPyError
 `CoordinateParseError` covers invalid syntax, shape, and formatting options.
 `CoordinateRangeError` covers non-finite and out-of-range numeric values.
 `AmbiguousCoordinateError` exposes competing interpretations where available
-and explains which order or syntax resolves the ambiguity.
+and explains which order or syntax resolves the ambiguity. Batch collect mode
+records these public exception types, messages, and ambiguity candidates
+without changing the scalar hierarchy.
 
 ## Constraints and non-goals
 
-Coordinate parsing and formatting use only the Python standard library,
-perform no file or network access, and do not load geodesic or scientific
-modules.
+Coordinate parsing, scalar and batch inspection, and formatting use only the
+Python standard library, perform no file or network access, and do not load
+geodesic or scientific modules.
 
 The coordinate layer does not support arbitrary CRS or datum conversion, UTM,
 MGRS, geohash, plus codes, altitude, depth, speed, time, full sensor messages,

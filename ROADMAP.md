@@ -4,9 +4,9 @@ This roadmap describes what remains to be done. Completed implementation detail
 belongs in [CHANGELOG.md](CHANGELOG.md) and the Git history, not in a second
 historical checklist.
 
-NautiPy is still preparing its first public release. Until that release is
-successfully published, the repository may correct or simplify the emerging
-API without compatibility wrappers.
+NautiPy 0.1.0 was published on July 27, 2026. Published releases and their
+documented public APIs and behavior are governed by the compatibility contract
+in [docs/SUPPORT.md](docs/SUPPORT.md).
 
 ## Implemented 0.1 baseline
 
@@ -29,10 +29,10 @@ The repository already contains the intended first-release feature set:
 Treat this baseline as implemented. Remaining work begins below; position
 fixing is part of the ordinary package rather than a separate installation.
 
-## First public release: 0.1.0
+## First public release: 0.1.0 (complete)
 
-The immediate priority is to release the implemented baseline, not to add
-another feature area.
+The implemented baseline was published on PyPI and as a matching GitHub
+Release on July 27, 2026.
 
 ### Repository work
 
@@ -46,16 +46,16 @@ another feature area.
 
 ### Maintainer release work
 
-- [x] Configure the pending PyPI Trusted Publisher and protected `pypi`
+- [x] Configure the PyPI Trusted Publisher and protected `pypi`
   environment described in [docs/RELEASING.md](docs/RELEASING.md).
-- [ ] Create and push an annotated `v0.1.0` tag only from the merged
+- [x] Create and push an annotated `v0.1.0` tag only from the merged
   default-branch release commit.
-- [ ] Verify the tested wheel and source distribution on PyPI and the matching
+- [x] Verify the tested wheel and source distribution on PyPI and the matching
   GitHub Release.
 
-The release is complete only when a clean environment can install
-`nautipy==0.1.0`, import the top-level coordinate, navigation, and fixing API,
-and pass dependency consistency checks.
+The release workflow verified that clean environments can install the tested
+wheel and source distribution, import the top-level coordinate, navigation,
+and fixing API, and pass dependency consistency checks.
 
 ## Distribution policy
 

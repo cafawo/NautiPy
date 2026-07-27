@@ -22,10 +22,10 @@ available immediately.
 
 ## Quick start
 
-### Parse and convert coordinates
+### Parse, inspect, and convert coordinates
 
 ```python
-from nautipy import convert_position, parse_position
+from nautipy import convert_position, inspect_positions, parse_position
 
 p1 = parse_position("50.12257, 8.66570")
 p2 = parse_position("50° 7.3542' N; 8° 39.942' E")
@@ -36,13 +36,30 @@ assert convert_position(
     "50.12257, 8.66570",
     to="dms",
 ) == "50° 7′ 21.25″ N; 8° 39′ 56.52″ E"
+
+batch = inspect_positions(
+    [
+        "50.12257 N; 8.66570 E",
+        "50, 8",
+        "not a position",
+    ],
+    order="auto",
+)
+assert (
+    batch.total_count,
+    batch.parsed_count,
+    batch.ambiguous_count,
+    batch.invalid_count,
+) == (3, 1, 1, 1)
 ```
 
 Detection covers decimal degrees (DD), degrees and decimal minutes (DDM),
 degrees/minutes/seconds (DMS), two-dimensional ISO 6709, and NMEA coordinate
 field pairs. Use `order="lonlat"` for unmarked longitude-first input.
 `order="auto"` accepts hard axis evidence or equivalent source orders;
-otherwise it raises `AmbiguousCoordinateError`.
+otherwise it raises `AmbiguousCoordinateError`. Batch inspection preserves
+every yielded record's zero-based index and either its `ParseResult` or its
+structured coordinate failure.
 
 ### Calculate WGS84 navigation values
 
@@ -106,7 +123,7 @@ provides the same interface.
 
 ## What is included
 
-- coordinate parsing, inspection, formatting, and conversion;
+- coordinate parsing, scalar and batch inspection, formatting, and conversion;
 - an immutable, validated `Position` model;
 - WGS84 distance, bearing, destination, interpolation, and nearest-position
   calculations;

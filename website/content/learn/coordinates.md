@@ -140,6 +140,47 @@ normalizations, source text, inferred angular resolution, and candidate
 interpretations. If materially different interpretations remain, it raises an
 ambiguity error whose `candidates` describe the competition.
 
+## Inspect a batch without losing failures
+
+`inspect_positions` applies the same rules independently to each yielded
+record. It preserves source order and zero-based indices, so invalid or
+ambiguous input cannot disappear between the original data and the result.
+
+```python
+from nautipy import BatchInspectionFailure, inspect_positions
+
+batch = inspect_positions(
+    [
+        "5007.3542,N,00839.9420,E",
+        "50, 8",
+        "not a coordinate",
+    ],
+    order="auto",
+)
+
+assert batch.total_count == 3
+assert batch.parsed_count == 1
+assert batch.ambiguous_count == 1
+assert batch.invalid_count == 1
+
+for item in batch.items:
+    if isinstance(item, BatchInspectionFailure):
+        print(item.index, item.error_type.__name__, item.message)
+    else:
+        print(item.index, item.result.position)
+```
+
+Collect mode is the default: successful `ParseResult` values and structured
+coordinate failures remain together in order. Raise mode stops at the first
+coordinate failure and reports its `positions[index]`. Neither mode changes
+the scalar parser's rules or guesses an axis order.
+
+The outer value is always the collection. A string, bytes or bytearray value,
+mapping, or `Position` is therefore rejected as the batch itself, while every
+other sequence is treated as a sequence of records. Wrap numeric position
+pairs in an outer collection, for example
+`[(50.12257, 8.66570), (51.0, 9.0)]`.
+
 ## Precision is not accuracy
 
 Writing more digits makes a *representation* more precise, but it does not make

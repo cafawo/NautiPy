@@ -435,8 +435,12 @@ class PublicApiTests(unittest.TestCase):
                 "PositionInput",
                 "CandidateDiagnostic",
                 "ParseResult",
+                "BatchInspectionSuccess",
+                "BatchInspectionFailure",
+                "BatchInspectionResult",
                 "parse_position",
                 "inspect_position",
+                "inspect_positions",
                 "format_position",
                 "convert_position",
                 "InverseResult",
@@ -485,6 +489,11 @@ class PublicApiTests(unittest.TestCase):
         self.assertEqual(
             coordinates.__all__,
             [
+                "BatchErrorMode",
+                "BatchInspectionItem",
+                "BatchInspectionSuccess",
+                "BatchInspectionFailure",
+                "BatchInspectionResult",
                 "CandidateDiagnostic",
                 "CandidateOutcome",
                 "CoordinateFormat",
@@ -496,6 +505,7 @@ class PublicApiTests(unittest.TestCase):
                 "convert_position",
                 "format_position",
                 "inspect_position",
+                "inspect_positions",
                 "parse_position",
             ],
         )

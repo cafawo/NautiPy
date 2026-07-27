@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
 from fractions import Fraction
 from math import isfinite
@@ -41,9 +41,15 @@ CandidateOutcome: TypeAlias = Literal[
 PositionInput: TypeAlias = (
     Position | str | Mapping[object, object] | Sequence[object]
 )
+BatchErrorMode: TypeAlias = Literal["collect", "raise"]
 _ExactNumber: TypeAlias = Decimal | Fraction
 
 __all__ = [
+    "BatchErrorMode",
+    "BatchInspectionItem",
+    "BatchInspectionSuccess",
+    "BatchInspectionFailure",
+    "BatchInspectionResult",
     "CandidateDiagnostic",
     "CandidateOutcome",
     "CoordinateFormat",
@@ -55,6 +61,7 @@ __all__ = [
     "convert_position",
     "format_position",
     "inspect_position",
+    "inspect_positions",
     "parse_position",
 ]
 
@@ -104,6 +111,141 @@ class ParseResult:
     candidates: tuple[CandidateDiagnostic, ...]
 
 
+def _validated_batch_index(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise CoordinateParseError(
+            "batch inspection index must be a non-negative integer"
+        )
+    return int(value)
+
+
+@dataclass(frozen=True, slots=True)
+class BatchInspectionSuccess:
+    """One successfully inspected value in an ordered batch."""
+
+    index: int
+    result: ParseResult
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "index",
+            _validated_batch_index(self.index),
+        )
+        if not isinstance(self.result, ParseResult):
+            raise CoordinateParseError(
+                "batch inspection success result must be a ParseResult"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class BatchInspectionFailure:
+    """One rejected value and its immutable coordinate-error diagnostics."""
+
+    index: int
+    error_type: type[CoordinateError]
+    message: str
+    candidates: tuple[object, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "index",
+            _validated_batch_index(self.index),
+        )
+        if not isinstance(self.error_type, type) or not issubclass(
+            self.error_type,
+            CoordinateError,
+        ):
+            raise CoordinateParseError(
+                "batch inspection failure error_type must be a "
+                "CoordinateError subclass"
+            )
+        if not isinstance(self.message, str):
+            raise CoordinateParseError(
+                "batch inspection failure message must be a string"
+            )
+        if isinstance(self.candidates, (str, bytes, bytearray)):
+            raise CoordinateParseError(
+                "batch inspection failure candidates must be an iterable"
+            )
+        try:
+            candidates = tuple(self.candidates)
+        except TypeError as error:
+            raise CoordinateParseError(
+                "batch inspection failure candidates must be an iterable"
+            ) from error
+        if candidates and not issubclass(
+            self.error_type,
+            AmbiguousCoordinateError,
+        ):
+            raise CoordinateParseError(
+                "batch inspection failure candidates require an "
+                "AmbiguousCoordinateError type"
+            )
+        object.__setattr__(self, "candidates", candidates)
+
+
+BatchInspectionItem: TypeAlias = (
+    BatchInspectionSuccess | BatchInspectionFailure
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BatchInspectionResult:
+    """Ordered batch inspection items with disjoint aggregate counts."""
+
+    items: tuple[BatchInspectionItem, ...]
+    total_count: int = field(init=False)
+    parsed_count: int = field(init=False)
+    ambiguous_count: int = field(init=False)
+    invalid_count: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.items, (str, bytes, bytearray)):
+            raise CoordinateParseError(
+                "batch inspection items must be an iterable"
+            )
+        try:
+            items = tuple(self.items)
+        except TypeError as error:
+            raise CoordinateParseError(
+                "batch inspection items must be an iterable"
+            ) from error
+
+        parsed_count = 0
+        ambiguous_count = 0
+        for expected_index, item in enumerate(items):
+            if not isinstance(
+                item,
+                (BatchInspectionSuccess, BatchInspectionFailure),
+            ):
+                raise CoordinateParseError(
+                    "batch inspection items must contain only success or "
+                    "failure records"
+                )
+            if item.index != expected_index:
+                raise CoordinateParseError(
+                    "batch inspection item indices must be contiguous and "
+                    "match item order"
+                )
+            if isinstance(item, BatchInspectionSuccess):
+                parsed_count += 1
+            elif issubclass(
+                item.error_type,
+                AmbiguousCoordinateError,
+            ):
+                ambiguous_count += 1
+
+        total_count = len(items)
+        invalid_count = total_count - parsed_count - ambiguous_count
+        object.__setattr__(self, "items", items)
+        object.__setattr__(self, "total_count", total_count)
+        object.__setattr__(self, "parsed_count", parsed_count)
+        object.__setattr__(self, "ambiguous_count", ambiguous_count)
+        object.__setattr__(self, "invalid_count", invalid_count)
+
+
 @dataclass(frozen=True, slots=True)
 class _ComponentCandidate:
     value: _ExactNumber
@@ -148,6 +290,12 @@ def _validate_parse_order(order: str) -> CoordinateOrder:
             'order must be "latlon", "lonlat", or "auto"'
         )
     return cast(CoordinateOrder, order)
+
+
+def _validate_batch_error_mode(value: str) -> BatchErrorMode:
+    if not isinstance(value, str) or value not in {"collect", "raise"}:
+        raise CoordinateParseError('errors must be "collect" or "raise"')
+    return cast(BatchErrorMode, value)
 
 
 def _validate_output_order(order: str) -> OutputOrder:
@@ -1588,6 +1736,95 @@ def inspect_position(
         selected_format=selected_format,
         format_alias_used=alias_used,
     )
+
+
+def _indexed_coordinate_error(
+    error: CoordinateError,
+    *,
+    index: int,
+) -> CoordinateError:
+    message = f"positions[{index}]: {error}"
+    if isinstance(error, AmbiguousCoordinateError):
+        return AmbiguousCoordinateError(
+            message,
+            candidates=error.candidates,
+        )
+    return type(error)(message)
+
+
+def inspect_positions(
+    values: Iterable[PositionInput],
+    *,
+    order: CoordinateOrder = "latlon",
+    format: str | None = None,
+    errors: BatchErrorMode = "collect",
+) -> BatchInspectionResult:
+    """Inspect an ordered iterable once, collecting or raising row errors."""
+
+    selected_order = _validate_parse_order(order)
+    selected_format = _validate_input_format(format)
+    selected_errors = _validate_batch_error_mode(errors)
+    alias_used = isinstance(format, str) and format.casefold() == "dmm"
+
+    if isinstance(
+        values,
+        (Position, str, bytes, bytearray, Mapping),
+    ):
+        raise CoordinateParseError(
+            "positions must be an iterable of position values, not a single "
+            "position value"
+        )
+    try:
+        iterator = iter(values)
+    except TypeError as error:
+        raise CoordinateParseError(
+            "positions must be an iterable of position values"
+        ) from error
+
+    items: list[BatchInspectionItem] = []
+    index = 0
+    while True:
+        try:
+            value = next(iterator)
+        except StopIteration:
+            break
+
+        try:
+            result = _parse_result(
+                value,
+                order=selected_order,
+                selected_format=selected_format,
+                format_alias_used=alias_used,
+            )
+        except CoordinateError as error:
+            if selected_errors == "raise":
+                raise _indexed_coordinate_error(
+                    error,
+                    index=index,
+                ) from error
+            candidates = (
+                error.candidates
+                if isinstance(error, AmbiguousCoordinateError)
+                else ()
+            )
+            items.append(
+                BatchInspectionFailure(
+                    index=index,
+                    error_type=type(error),
+                    message=str(error),
+                    candidates=candidates,
+                )
+            )
+        else:
+            items.append(
+                BatchInspectionSuccess(
+                    index=index,
+                    result=result,
+                )
+            )
+        index += 1
+
+    return BatchInspectionResult(tuple(items))
 
 
 def parse_position(

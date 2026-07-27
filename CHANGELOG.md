@@ -9,6 +9,9 @@ Notable user-facing changes to NautiPy are recorded here.
 - Added an education-first GitHub Pages site with original diagrams, a
   verified-data Fix Lab, scientific references, and automated deployment,
   while keeping every website asset out of PyPI distributions.
+- Added one-pass batch coordinate inspection with ordered, indexed successes
+  and failures, aggregate parsed, ambiguous, and invalid counts, and collect
+  or raise error handling that preserves scalar diagnostics.
 
 ## 0.1.0 - 2026-07-27
 
