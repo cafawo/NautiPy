@@ -1,0 +1,903 @@
+{
+  "schema_version": 1,
+  "earth_model": "WGS84",
+  "generated_by": "website/tools/generate_fix_lab.py using NautiPy public API",
+  "browser_model": "Precomputed results only; the browser draws local schematics and does not solve a position.",
+  "safety_note": "Educational demonstration only. NautiPy is not certified navigation equipment.",
+  "scenarios": [
+    {
+      "id": "two-ranges",
+      "title": "Two ranges: two possible boats",
+      "lesson": "Two WGS84 range circles commonly intersect twice, so NautiPy reports both candidates instead of guessing.",
+      "schematic_note": "The screen is a local east/north schematic; the fixture values were calculated on WGS84.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 50.116135,
+          "longitude": 8.670277,
+          "east_m": 337.23,
+          "north_m": -1230.542
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 50.110347,
+          "longitude": 8.659873,
+          "east_m": -406.943,
+          "north_m": -1874.344
+        }
+      ],
+      "observations": [
+        {
+          "kind": "range",
+          "reference_id": "reference-1",
+          "value": 1275.915,
+          "unit": "metres",
+          "uncertainty": 2.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-2",
+          "value": 1918.011,
+          "unit": "metres",
+          "uncertainty": 2.0
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "candidate-1",
+          "label": "Candidate 1",
+          "kind": "candidate",
+          "latitude": 50.11154122,
+          "longitude": 8.68662247,
+          "east_m": 1506.45,
+          "north_m": -1741.312
+        },
+        {
+          "id": "candidate-2",
+          "label": "Candidate 2",
+          "kind": "candidate",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [],
+      "diagnostics": {
+        "status": "ambiguous",
+        "message": "two WGS84 range candidates were found",
+        "candidate_count": 2,
+        "warnings": [
+          "two range observations produce two valid positions"
+        ]
+      }
+    },
+    {
+      "id": "third-range",
+      "title": "A third range resolves the ambiguity",
+      "lesson": "The third observation agrees with only one of the two-range candidates, producing a unique diagnosed fix.",
+      "schematic_note": "The screen is a local east/north schematic; the fixture values were calculated on WGS84. The compact ellipse is drawn at 20× scale for legibility.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 50.116135,
+          "longitude": 8.670277,
+          "east_m": 337.23,
+          "north_m": -1230.542
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 50.110347,
+          "longitude": 8.659873,
+          "east_m": -406.943,
+          "north_m": -1874.344
+        },
+        {
+          "id": "reference-3",
+          "label": "Reference 3",
+          "kind": "reference",
+          "latitude": 50.112836,
+          "longitude": 8.666753,
+          "east_m": 85.19,
+          "north_m": -1597.504
+        }
+      ],
+      "observations": [
+        {
+          "kind": "range",
+          "reference_id": "reference-1",
+          "value": 1275.915,
+          "unit": "metres",
+          "uncertainty": 2.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-2",
+          "value": 1918.011,
+          "unit": "metres",
+          "uncertainty": 2.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-3",
+          "value": 1599.774,
+          "unit": "metres",
+          "uncertainty": 2.0
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "fix",
+          "label": "NautiPy fix",
+          "kind": "fix",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [
+        {
+          "id": "fix-uncertainty",
+          "label": "95% local uncertainty",
+          "center_id": "fix",
+          "semi_major_95_m": 14.497,
+          "semi_minor_95_m": 2.882,
+          "major_axis_bearing": 87.916,
+          "display_scale": 20.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        }
+      ],
+      "diagnostics": {
+        "status": "converged",
+        "message": "bounded WGS84 least-squares fix converged",
+        "rms": 0.0,
+        "bearing_rms_degrees": null,
+        "range_rms_m": 0.0,
+        "rank": 2,
+        "condition_number": 5.031,
+        "warnings": [],
+        "residuals": [
+          {
+            "label": "Range 1",
+            "kind": "range",
+            "natural_residual": 0.0,
+            "natural_unit": "metres",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Range 2",
+            "kind": "range",
+            "natural_residual": 0.0,
+            "natural_unit": "metres",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Range 3",
+            "kind": "range",
+            "natural_residual": 0.0,
+            "natural_unit": "metres",
+            "standardized_residual": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "id": "tangent-ranges",
+      "title": "Touching ranges: one point, weak geometry",
+      "lesson": "Tangent circles touch at one mathematical point, but they do not constrain two stable directions, so the full fix is degenerate.",
+      "schematic_note": "The screen is a local east/north schematic; the fixture values were calculated on WGS84.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": -0.01,
+          "east_m": -1113.195,
+          "north_m": 0.0
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": 0.01,
+          "east_m": 1113.195,
+          "north_m": 0.0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "range",
+          "reference_id": "reference-1",
+          "value": 1113.195,
+          "unit": "metres",
+          "uncertainty": 1.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-2",
+          "value": 1113.195,
+          "unit": "metres",
+          "uncertainty": 1.0
+        }
+      ],
+      "positions": [
+        {
+          "id": "candidate-1",
+          "label": "Tangent candidate",
+          "kind": "candidate",
+          "latitude": 0.0,
+          "longitude": 0.0,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [],
+      "diagnostics": {
+        "status": "degenerate",
+        "message": "tangent ranges do not determine two stable position axes",
+        "rms": null,
+        "bearing_rms_degrees": null,
+        "range_rms_m": null,
+        "rank": 1,
+        "condition_number": null,
+        "warnings": [
+          "tangent range circles have a unique but rank-deficient candidate"
+        ],
+        "residuals": [],
+        "candidate_status": "unique",
+        "candidate_message": "one tangent WGS84 range candidate was found"
+      }
+    },
+    {
+      "id": "strong-bearings",
+      "title": "Strong bearing geometry",
+      "lesson": "Sight lines crossing near a right angle constrain both local axes.",
+      "schematic_note": "Bearing arrows start at the boat and point toward each reference. The screen is schematic; calculations use true WGS84 bearings. The compact ellipse is drawn at 10× scale for legibility.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 50.14517849,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 2000.0
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 50.12719463,
+          "longitude": 8.69353152,
+          "east_m": 2000.0,
+          "north_m": 0.0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "bearing",
+          "reference_id": "reference-1",
+          "origin_id": "truth",
+          "value": 0.0,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        },
+        {
+          "kind": "bearing",
+          "reference_id": "reference-2",
+          "origin_id": "truth",
+          "value": 90.0,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "fix",
+          "label": "NautiPy fix",
+          "kind": "fix",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [
+        {
+          "id": "fix-uncertainty",
+          "label": "95% local uncertainty",
+          "center_id": "fix",
+          "semi_major_95_m": 8.548,
+          "semi_minor_95_m": 8.544,
+          "major_axis_bearing": 112.505,
+          "display_scale": 10.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        }
+      ],
+      "diagnostics": {
+        "status": "converged",
+        "message": "bounded WGS84 least-squares fix converged",
+        "rms": 0.0,
+        "bearing_rms_degrees": 0.0,
+        "range_rms_m": null,
+        "rank": 2,
+        "condition_number": 1.001,
+        "warnings": [],
+        "residuals": [
+          {
+            "label": "Bearing 1",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Bearing 2",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          }
+        ],
+        "candidate_status": "unique"
+      }
+    },
+    {
+      "id": "weak-bearings",
+      "title": "Weak bearing geometry",
+      "lesson": "Nearly parallel sight lines amplify small angular errors and stretch the uncertainty ellipse.",
+      "schematic_note": "Bearing arrows start at the boat and point toward each reference. The screen is schematic; calculations use true WGS84 bearings. The extreme ellipse shape is shown at its natural scale.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 50.14517849,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 2000.0
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 50.14517846,
+          "longitude": 8.66561083,
+          "east_m": 3.491,
+          "north_m": 1999.997
+        }
+      ],
+      "observations": [
+        {
+          "kind": "bearing",
+          "reference_id": "reference-1",
+          "origin_id": "truth",
+          "value": 0.0,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        },
+        {
+          "kind": "bearing",
+          "reference_id": "reference-2",
+          "origin_id": "truth",
+          "value": 0.1,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "fix",
+          "label": "NautiPy fix",
+          "kind": "fix",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [
+        {
+          "id": "fix-uncertainty",
+          "label": "95% local uncertainty",
+          "center_id": "fix",
+          "semi_major_95_m": 6923.274,
+          "semi_minor_95_m": 6.044,
+          "major_axis_bearing": 0.05,
+          "display_scale": 1.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        }
+      ],
+      "diagnostics": {
+        "status": "converged",
+        "message": "bounded WGS84 least-squares fix converged",
+        "rms": 0.0,
+        "bearing_rms_degrees": 0.0,
+        "range_rms_m": null,
+        "rank": 2,
+        "condition_number": 1145.486,
+        "warnings": [
+          "fix geometry is weak and strongly anisotropic",
+          "uncertainty is large relative to the search region"
+        ],
+        "residuals": [
+          {
+            "label": "Bearing 1",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Bearing 2",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          }
+        ],
+        "candidate_status": "unique"
+      }
+    },
+    {
+      "id": "noisy-mixed",
+      "title": "Noisy bearings and ranges",
+      "lesson": "Real observations rarely meet at one exact point. Standardized least squares balances their residuals using stated uncertainties.",
+      "schematic_note": "Bearing arrows start at the actual boat and point toward references. The screen is schematic; predictions and residuals use WGS84. The compact ellipse is drawn at 20× scale for legibility.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 50.1424042,
+          "longitude": 8.67417425,
+          "east_m": 615.636,
+          "north_m": 1691.447
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 50.116178,
+          "longitude": 8.67994147,
+          "east_m": 1028.46,
+          "north_m": -1225.671
+        },
+        {
+          "id": "reference-3",
+          "label": "Reference 3",
+          "kind": "reference",
+          "latitude": 50.12422888,
+          "longitude": 8.63939625,
+          "east_m": -1871.135,
+          "north_m": -329.932
+        }
+      ],
+      "observations": [
+        {
+          "kind": "bearing",
+          "reference_id": "reference-1",
+          "origin_id": "truth",
+          "value": 20.08,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        },
+        {
+          "kind": "bearing",
+          "reference_id": "reference-2",
+          "origin_id": "truth",
+          "value": 139.95,
+          "unit": "degrees true",
+          "uncertainty": 0.1
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-2",
+          "value": 1607.0,
+          "unit": "metres",
+          "uncertainty": 5.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-3",
+          "value": 1895.0,
+          "unit": "metres",
+          "uncertainty": 5.0
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 50.127198,
+          "longitude": 8.665562,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "fix",
+          "label": "Estimated fix",
+          "kind": "fix",
+          "latitude": 50.1272196,
+          "longitude": 8.66551139,
+          "east_m": -3.619,
+          "north_m": 2.403
+        }
+      ],
+      "ellipses": [
+        {
+          "id": "fix-uncertainty",
+          "label": "95% local uncertainty",
+          "center_id": "fix",
+          "semi_major_95_m": 8.287,
+          "semi_minor_95_m": 5.198,
+          "major_axis_bearing": 172.555,
+          "display_scale": 20.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        }
+      ],
+      "diagnostics": {
+        "status": "converged",
+        "message": "bounded WGS84 least-squares fix converged",
+        "rms": 0.4356,
+        "bearing_rms_degrees": 0.0387,
+        "range_rms_m": 2.395,
+        "rank": 2,
+        "condition_number": 1.594,
+        "warnings": [],
+        "residuals": [
+          {
+            "label": "Bearing 1",
+            "kind": "bearing",
+            "natural_residual": 0.054437,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.5444
+          },
+          {
+            "label": "Bearing 2",
+            "kind": "bearing",
+            "natural_residual": 0.006118,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0612
+          },
+          {
+            "label": "Range 1",
+            "kind": "range",
+            "natural_residual": -2.833,
+            "natural_unit": "metres",
+            "standardized_residual": -0.5666
+          },
+          {
+            "label": "Range 2",
+            "kind": "range",
+            "natural_residual": 1.856,
+            "natural_unit": "metres",
+            "standardized_residual": 0.3712
+          }
+        ]
+      }
+    },
+    {
+      "id": "uncertainty-weighting",
+      "title": "Uncertainty controls influence",
+      "lesson": "The same biased range pulls hard when declared precise and barely moves the fix when declared uncertain. Uncertainty is not decoration.",
+      "schematic_note": "Both fixes use the same WGS84 observations; only the biased observation's standard deviation changes.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": 0.0,
+          "east_m": -1113.195,
+          "north_m": -1105.743
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": 0.02,
+          "east_m": 1113.195,
+          "north_m": -1105.743
+        },
+        {
+          "id": "reference-3",
+          "label": "Reference 3",
+          "kind": "reference",
+          "latitude": 0.02,
+          "longitude": 0.0,
+          "east_m": -1113.195,
+          "north_m": 1105.743
+        },
+        {
+          "id": "reference-4",
+          "label": "Reference 4",
+          "kind": "reference",
+          "latitude": 0.02,
+          "longitude": 0.02,
+          "east_m": 1113.195,
+          "north_m": 1105.743
+        }
+      ],
+      "observations": [
+        {
+          "kind": "range",
+          "reference_id": "reference-1",
+          "value": 1769.035,
+          "unit": "metres",
+          "uncertainty": 1.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-2",
+          "value": 1569.035,
+          "unit": "metres",
+          "uncertainty": 10.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-3",
+          "value": 1569.035,
+          "unit": "metres",
+          "uncertainty": 10.0
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-4",
+          "value": 1569.035,
+          "unit": "metres",
+          "uncertainty": 10.0
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 0.01,
+          "longitude": 0.01,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "high-weight-fix",
+          "label": "Biased range: σ = 1 m",
+          "kind": "comparison",
+          "latitude": 0.01127159,
+          "longitude": 0.01125224,
+          "east_m": 139.398,
+          "north_m": 140.605
+        },
+        {
+          "id": "low-weight-fix",
+          "label": "Biased range: σ = 1,000 m",
+          "kind": "fix",
+          "latitude": 0.01000013,
+          "longitude": 0.01000013,
+          "east_m": 0.014,
+          "north_m": 0.014
+        }
+      ],
+      "ellipses": [],
+      "diagnostics": {
+        "status": "converged",
+        "message": "Two converged fits compared",
+        "high_weight_shift_m": 197.994,
+        "low_weight_shift_m": 0.02,
+        "warnings": [
+          "residuals are large relative to stated uncertainties"
+        ]
+      }
+    },
+    {
+      "id": "uncertainty-ellipse",
+      "title": "Larger uncertainty, wider ellipse",
+      "lesson": "Multiplying every observation uncertainty by 8.5 leaves this exact fix in place and multiplies both confidence axes by 8.5.",
+      "schematic_note": "Ellipses are local, linearized 95% confidence estimates in east/north metres. Both are drawn at 15× scale for legibility; the diagnostic values are unscaled. They are not safety bounds.",
+      "references": [
+        {
+          "id": "reference-1",
+          "label": "Reference 1",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": 0.0,
+          "east_m": -1447.153,
+          "north_m": -1216.317
+        },
+        {
+          "id": "reference-2",
+          "label": "Reference 2",
+          "kind": "reference",
+          "latitude": 0.0,
+          "longitude": 0.03,
+          "east_m": 1892.431,
+          "north_m": -1216.317
+        },
+        {
+          "id": "reference-3",
+          "label": "Reference 3",
+          "kind": "reference",
+          "latitude": 0.03,
+          "longitude": 0.0,
+          "east_m": -1447.153,
+          "north_m": 2100.911
+        },
+        {
+          "id": "reference-4",
+          "label": "Reference 4",
+          "kind": "reference",
+          "latitude": 0.025,
+          "longitude": 0.028,
+          "east_m": 1669.792,
+          "north_m": 1548.04
+        }
+      ],
+      "observations": [
+        {
+          "kind": "bearing",
+          "reference_id": "reference-1",
+          "origin_id": "truth",
+          "value": 229.9533,
+          "unit": "degrees true",
+          "uncertainty": 1.7
+        },
+        {
+          "kind": "bearing",
+          "reference_id": "reference-2",
+          "origin_id": "truth",
+          "value": 122.73,
+          "unit": "degrees true",
+          "uncertainty": 1.7
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-3",
+          "value": 2551.094,
+          "unit": "metres",
+          "uncertainty": 25.5
+        },
+        {
+          "kind": "range",
+          "reference_id": "reference-4",
+          "value": 2276.979,
+          "unit": "metres",
+          "uncertainty": 25.5
+        }
+      ],
+      "positions": [
+        {
+          "id": "truth",
+          "label": "Actual boat",
+          "kind": "truth",
+          "latitude": 0.011,
+          "longitude": 0.013,
+          "east_m": 0.0,
+          "north_m": 0.0
+        },
+        {
+          "id": "fix",
+          "label": "NautiPy fix",
+          "kind": "fix",
+          "latitude": 0.011,
+          "longitude": 0.013,
+          "east_m": 0.0,
+          "north_m": 0.0
+        }
+      ],
+      "ellipses": [
+        {
+          "id": "baseline-uncertainty",
+          "label": "Original uncertainty",
+          "center_id": "fix",
+          "semi_major_95_m": 7.389,
+          "semi_minor_95_m": 6.286,
+          "major_axis_bearing": 89.391,
+          "display_scale": 15.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        },
+        {
+          "id": "scaled-uncertainty",
+          "label": "Uncertainty × 8.5",
+          "center_id": "fix",
+          "semi_major_95_m": 62.803,
+          "semi_minor_95_m": 53.427,
+          "major_axis_bearing": 89.391,
+          "display_scale": 15.0,
+          "note": "Local linearized 95% confidence ellipse; not a safety bound."
+        }
+      ],
+      "diagnostics": {
+        "status": "converged",
+        "message": "bounded WGS84 least-squares fix converged",
+        "rms": 0.0,
+        "bearing_rms_degrees": 0.0,
+        "range_rms_m": 0.0,
+        "rank": 2,
+        "condition_number": 1.175,
+        "warnings": [],
+        "residuals": [
+          {
+            "label": "Bearing 1",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Bearing 2",
+            "kind": "bearing",
+            "natural_residual": 0.0,
+            "natural_unit": "degrees",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Range 1",
+            "kind": "range",
+            "natural_residual": 0.0,
+            "natural_unit": "metres",
+            "standardized_residual": 0.0
+          },
+          {
+            "label": "Range 2",
+            "kind": "range",
+            "natural_residual": 0.0,
+            "natural_unit": "metres",
+            "standardized_residual": 0.0
+          }
+        ],
+        "uncertainty_scale": 8.5,
+        "baseline_semi_major_95_m": 7.389,
+        "scaled_semi_major_95_m": 62.803
+      }
+    }
+  ]
+}

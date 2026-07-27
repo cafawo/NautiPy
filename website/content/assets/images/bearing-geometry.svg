@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="bearing-title bearing-desc">
+  <title id="bearing-title">Bearing observations point from the boat toward references</title>
+  <desc id="bearing-desc">In a strong geometry panel two arrows begin at a boat and separate toward two landmarks. In a weak geometry panel two arrows also begin at a boat but are nearly parallel, leaving a long uncertain direction.</desc>
+  <defs>
+    <marker id="bearing-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#087e8b"/>
+    </marker>
+  </defs>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.panel{fill:#fff;stroke:#b9ccd1;stroke-width:2}.title{fill:#19323c;font:700 19px system-ui,sans-serif}.label{fill:#19323c;font:600 15px system-ui,sans-serif}.note{fill:#4f646d;font:14px system-ui,sans-serif}.bearing{stroke:#087e8b;stroke-width:4;marker-end:url(#bearing-arrow)}.boat{fill:#fff;stroke:#c94f36;stroke-width:4}.reference{fill:#fff;stroke:#a66a00;stroke-width:4}.weak{fill:#fff5dc;stroke:#a66a00;stroke-width:2;stroke-dasharray:7 5}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="title" x="38" y="42">The sighting is measured at the unknown boat</text>
+  <g transform="translate(30 67)">
+    <rect class="panel" width="350" height="323" rx="14"/>
+    <text class="title" x="18" y="34">Strong crossing angle</text>
+    <line class="bearing" data-bearing-origin="boat" x1="175" y1="242" x2="82" y2="89"/>
+    <line class="bearing" data-bearing-origin="boat" x1="175" y1="242" x2="277" y2="87"/>
+    <g class="reference" transform="translate(78 79)">
+      <path d="M-9 9 L0-10 L9 9 Z M-13 12 H13"/>
+    </g>
+    <g class="reference" transform="translate(281 77)">
+      <path d="M-9 9 L0-10 L9 9 Z M-13 12 H13"/>
+    </g>
+    <g class="boat" id="boat-strong" transform="translate(175 242)">
+      <path d="M-13 9 L0-14 L13 9 Z M-18 14 Q0 25 18 14"/>
+    </g>
+    <path d="M145 202 Q175 174 205 202" fill="none" stroke="#c94f36" stroke-width="3"/>
+    <text class="label" x="131" y="287">compact fix</text>
+    <text class="note" x="18" y="311">Arrows start at the boat.</text>
+  </g>
+  <g transform="translate(420 67)">
+    <rect class="panel" width="350" height="323" rx="14"/>
+    <text class="title" x="18" y="34">Weak, nearly parallel</text>
+    <ellipse class="weak" cx="173" cy="168" rx="33" ry="111" transform="rotate(-8 173 168)"/>
+    <line class="bearing" data-bearing-origin="boat" x1="170" y1="252" x2="153" y2="80"/>
+    <line class="bearing" data-bearing-origin="boat" x1="170" y1="252" x2="179" y2="79"/>
+    <g class="reference" transform="translate(152 70)">
+      <path d="M-9 9 L0-10 L9 9 Z M-13 12 H13"/>
+    </g>
+    <g class="reference" transform="translate(180 69)">
+      <path d="M-9 9 L0-10 L9 9 Z M-13 12 H13"/>
+    </g>
+    <g class="boat" id="boat-weak" transform="translate(170 252)">
+      <path d="M-13 9 L0-14 L13 9 Z M-18 14 Q0 25 18 14"/>
+    </g>
+    <text class="label" x="209" y="165">error amplified</text>
+    <text class="note" x="18" y="311">Schematic; calculations remain WGS84.</text>
+  </g>
+</svg>

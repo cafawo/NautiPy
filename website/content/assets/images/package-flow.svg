@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" role="img" aria-labelledby="package-flow-title package-flow-desc">
+  <title id="package-flow-title">NautiPy has a coordinate workflow and a diagnosed fixing workflow</title>
+  <desc id="package-flow-desc">Messy coordinate text flows through parsing into a validated Position and then to formatting, GeoJSON, or WGS84 navigation. Bearing and range observations flow through WGS84 prediction and a bounded multistart fit into a position with diagnostics.</desc>
+  <defs>
+    <marker id="flow-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#58727a"/>
+    </marker>
+  </defs>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.lane{fill:#fff;stroke:#b9ccd1;stroke-width:2}.node{fill:#fff;stroke:#087e8b;stroke-width:3}.advanced{stroke:#6c5ce7}.output{fill:#eaf7f8;stroke:#075763}.title{fill:#19323c;font:700 20px system-ui,sans-serif}.lane-title{fill:#19323c;font:700 17px system-ui,sans-serif}.label{fill:#19323c;font:600 14px system-ui,sans-serif}.note{fill:#4f646d;font:13px system-ui,sans-serif}.compact{font-size:11px}.flow{fill:none;stroke:#58727a;stroke-width:3;marker-end:url(#flow-arrow)}.boundary{fill:none;stroke:#a66a00;stroke-width:2;stroke-dasharray:8 6}
+  </style>
+  <rect class="bg" x="2" y="2" width="896" height="466" rx="18"/>
+  <text class="title" x="36" y="40">Two connected workflows, one public package</text>
+  <g transform="translate(26 60)">
+    <rect class="lane" width="848" height="168" rx="15"/>
+    <text class="lane-title" x="18" y="30">Coordinates and navigation</text>
+    <g transform="translate(25 57)">
+      <rect class="node" width="174" height="70" rx="11"/>
+      <text class="label" x="87" y="29" text-anchor="middle">messy coordinate input</text>
+      <text class="note compact" x="87" y="51" text-anchor="middle">DD · DDM · DMS · ISO · NMEA</text>
+    </g>
+    <path class="flow" d="M199 92 H272"/>
+    <g transform="translate(272 57)">
+      <rect class="node output" width="172" height="70" rx="11"/>
+      <text class="label" x="86" y="30" text-anchor="middle">validated Position</text>
+      <text class="note" x="86" y="52" text-anchor="middle">latitude + longitude</text>
+    </g>
+    <path class="flow" d="M444 92 H515"/>
+    <g transform="translate(515 48)">
+      <rect class="node" width="295" height="88" rx="11"/>
+      <text class="label" x="147" y="25" text-anchor="middle">formatting · GeoJSON · CLI</text>
+      <text class="label" x="147" y="49" text-anchor="middle">WGS84 distance · bearings</text>
+      <text class="label" x="147" y="73" text-anchor="middle">destination · interpolation</text>
+    </g>
+  </g>
+  <g transform="translate(26 247)">
+    <rect class="lane" width="848" height="190" rx="15"/>
+    <text class="lane-title" x="18" y="30">Diagnosed position fixing</text>
+    <g transform="translate(25 66)">
+      <rect class="node advanced" width="174" height="76" rx="11"/>
+      <text class="label" x="87" y="30" text-anchor="middle">known references</text>
+      <text class="note" x="87" y="53" text-anchor="middle">bearings + ranges + σ</text>
+    </g>
+    <path class="flow" d="M199 104 H253"/>
+    <g transform="translate(253 66)">
+      <rect class="node advanced" width="170" height="76" rx="11"/>
+      <text class="label" x="85" y="29" text-anchor="middle">WGS84 predictions</text>
+      <text class="note" x="85" y="53" text-anchor="middle">standardized residuals</text>
+    </g>
+    <path class="flow" d="M423 104 H476"/>
+    <g transform="translate(476 66)">
+      <rect class="node advanced" width="153" height="76" rx="11"/>
+      <text class="label" x="76" y="28" text-anchor="middle">bounded local fit</text>
+      <text class="note" x="76" y="52" text-anchor="middle">deterministic starts</text>
+    </g>
+    <path class="flow" d="M629 104 H680"/>
+    <g transform="translate(680 56)">
+      <rect class="node output" width="142" height="96" rx="11"/>
+      <text class="label" x="71" y="25" text-anchor="middle">position</text>
+      <text class="label" x="71" y="48" text-anchor="middle">status + residuals</text>
+      <text class="label" x="71" y="71" text-anchor="middle">geometry</text>
+      <text class="label" x="71" y="91" text-anchor="middle">uncertainty</text>
+    </g>
+    <rect class="boundary" x="230" y="47" width="422" height="115" rx="15"/>
+    <text class="note" x="441" y="180" text-anchor="middle">scientific implementation stays lazy until a calculation needs it</text>
+  </g>
+</svg>

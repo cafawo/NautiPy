@@ -71,6 +71,10 @@ product-direction change.
 - Do not perform network access during import or ordinary calculations.
 - Prefer standard-library `unittest` unless a concrete need justifies another
   test dependency.
+- Keep the educational GitHub Pages source and toolchain under `website/`.
+  Website content, generated HTML, figures, CSS, JavaScript, and documentation
+  dependencies must remain absent from both package distributions and runtime
+  dependency metadata.
 - PyPI is the only maintained package index. Do not create, submit, or
   maintain conda or conda-forge recipes or feedstocks unless the product's
   distribution policy is explicitly changed.
@@ -87,7 +91,9 @@ product-direction change.
 6. Run the smallest relevant tests while iterating, then the complete suite.
 7. For packaging, imports, or public API changes, also build and smoke-test
    both the wheel and source distribution.
-8. Report commands run, dependency effects, numerical assumptions,
+8. For public-site changes, verify Fix Lab fixtures through the public API and
+   run a strict MkDocs build with the pinned `website/requirements.txt`.
+9. Report commands run, dependency effects, numerical assumptions,
    compatibility effects, and remaining limitations.
 
 ## Definition of done

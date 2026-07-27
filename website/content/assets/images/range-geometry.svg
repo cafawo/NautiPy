@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="range-title range-desc">
+  <title id="range-title">Two range circles can have two, one, or no intersections</title>
+  <desc id="range-desc">Three panels show overlapping circles with two candidate boats, tangent circles with one unstable candidate, and separate circles with no solution. All are labeled as local schematics.</desc>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.panel{fill:#fff;stroke:#b9ccd1;stroke-width:2}.title{fill:#19323c;font:700 18px system-ui,sans-serif}.label{fill:#19323c;font:600 14px system-ui,sans-serif}.note{fill:#4f646d;font:13px system-ui,sans-serif}.circle-a{fill:none;stroke:#087e8b;stroke-width:3}.circle-b{fill:none;stroke:#c94f36;stroke-width:3;stroke-dasharray:8 5}.ref{fill:#fff;stroke:#19323c;stroke-width:3}.candidate{fill:#fff;stroke:#6c5ce7;stroke-width:3}.none{stroke:#c94f36;stroke-width:4}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="title" x="38" y="42">Range geometry: count every candidate</text>
+  <g transform="translate(24 67)">
+    <rect class="panel" width="238" height="312" rx="13"/>
+    <text class="title" x="18" y="33">Two intersections</text>
+    <circle class="circle-a" cx="82" cy="154" r="73"/>
+    <circle class="circle-b" cx="156" cy="154" r="73"/>
+    <rect class="ref" x="75" y="147" width="14" height="14" transform="rotate(45 82 154)"/>
+    <rect class="ref" x="149" y="147" width="14" height="14" transform="rotate(45 156 154)"/>
+    <circle class="candidate" cx="119" cy="91" r="8"/>
+    <circle class="candidate" cx="119" cy="217" r="8"/>
+    <text class="label" x="133" y="95">A</text>
+    <text class="label" x="133" y="222">B</text>
+    <text class="note" x="18" y="284">ambiguous: keep A and B</text>
+  </g>
+  <g transform="translate(281 67)">
+    <rect class="panel" width="238" height="312" rx="13"/>
+    <text class="title" x="18" y="33">One tangent point</text>
+    <circle class="circle-a" cx="69" cy="154" r="57"/>
+    <circle class="circle-b" cx="183" cy="154" r="57"/>
+    <rect class="ref" x="62" y="147" width="14" height="14" transform="rotate(45 69 154)"/>
+    <rect class="ref" x="176" y="147" width="14" height="14" transform="rotate(45 183 154)"/>
+    <circle class="candidate" cx="126" cy="154" r="8"/>
+    <path d="M126 110 V198" stroke="#a66a00" stroke-width="3" stroke-dasharray="4 5"/>
+    <text class="note" x="18" y="270">one point, but no stable</text>
+    <text class="note" x="18" y="289">second direction</text>
+  </g>
+  <g transform="translate(538 67)">
+    <rect class="panel" width="238" height="312" rx="13"/>
+    <text class="title" x="18" y="33">No intersection</text>
+    <circle class="circle-a" cx="67" cy="154" r="48"/>
+    <circle class="circle-b" cx="181" cy="154" r="48"/>
+    <rect class="ref" x="60" y="147" width="14" height="14" transform="rotate(45 67 154)"/>
+    <rect class="ref" x="174" y="147" width="14" height="14" transform="rotate(45 181 154)"/>
+    <path class="none" d="M113 137 L139 171 M139 137 L113 171"/>
+    <text class="note" x="18" y="284">inconsistent measurements</text>
+  </g>
+  <text class="note" x="269" y="410">Local teaching schematics · WGS84 calculations are not flat circles</text>
+</svg>

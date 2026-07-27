@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="ellipsoid-title ellipsoid-desc">
+  <title id="ellipsoid-title">A shortest WGS84 geodesic joins two positions</title>
+  <desc id="ellipsoid-desc">A flattened Earth ellipse carries points A and B connected by a curved surface route. Labels distinguish the inverse question from the direct question and show changing endpoint bearings.</desc>
+  <defs>
+    <marker id="geodesic-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#c94f36"/>
+    </marker>
+  </defs>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.earth{fill:#dff2f4;stroke:#087e8b;stroke-width:3}.grid{fill:none;stroke:#78aeb5;stroke-width:1.5;stroke-dasharray:5 6}.route{fill:none;stroke:#c94f36;stroke-width:5;marker-end:url(#geodesic-arrow)}.point{fill:#fff;stroke:#19323c;stroke-width:4}.title{fill:#19323c;font:700 19px system-ui,sans-serif}.label{fill:#19323c;font:600 15px system-ui,sans-serif}.note{fill:#4f646d;font:14px system-ui,sans-serif}.card{fill:#fff;stroke:#78909c;stroke-width:2}.bearing{fill:none;stroke:#a66a00;stroke-width:3}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="title" x="38" y="42">Navigation follows the WGS84 ellipsoid</text>
+  <ellipse class="earth" cx="400" cy="236" rx="302" ry="137"/>
+  <ellipse class="grid" cx="400" cy="236" rx="302" ry="50"/>
+  <path class="grid" d="M400 99 C318 152 318 320 400 373 M400 99 C482 152 482 320 400 373"/>
+  <path class="route" d="M205 177 C314 91 489 103 607 194"/>
+  <circle class="point" cx="205" cy="177" r="9"/>
+  <circle class="point" cx="607" cy="194" r="9"/>
+  <text class="title" x="174" y="157">A</text>
+  <text class="title" x="620" y="181">B</text>
+  <path class="bearing" d="M205 177 L205 127 M205 177 Q228 151 251 159"/>
+  <path class="bearing" d="M607 194 L607 144 M607 194 Q583 166 558 174"/>
+  <text class="note" x="132" y="114">initial bearing</text>
+  <text class="note" x="620" y="139">final bearing</text>
+  <g transform="translate(53 336)">
+    <rect class="card" width="310" height="67" rx="10"/>
+    <text class="label" x="16" y="27">Inverse problem</text>
+    <text class="note" x="16" y="50">A + B → distance and endpoint bearings</text>
+  </g>
+  <g transform="translate(437 336)">
+    <rect class="card" width="310" height="67" rx="10"/>
+    <text class="label" x="16" y="27">Direct problem</text>
+    <text class="note" x="16" y="50">A + bearing + distance → destination B</text>
+  </g>
+</svg>

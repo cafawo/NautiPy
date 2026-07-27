@@ -9,7 +9,37 @@ import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import tarfile
 import venv
+import zipfile
+
+
+def validate_distribution_contents(artifact: Path, *, is_wheel: bool) -> None:
+    """Reject public-site assets accidentally included in a distribution."""
+
+    try:
+        if is_wheel:
+            with zipfile.ZipFile(artifact) as archive:
+                members = archive.namelist()
+        else:
+            with tarfile.open(artifact, mode="r:gz") as archive:
+                members = archive.getnames()
+    except (OSError, tarfile.TarError, zipfile.BadZipFile) as error:
+        raise SystemExit(
+            f"could not inspect distribution artifact {artifact}: {error}"
+        ) from error
+
+    website_members = [
+        member
+        for member in members
+        if "website" in Path(member.replace("\\", "/")).parts
+    ]
+    if website_members:
+        sample = ", ".join(repr(member) for member in website_members[:3])
+        raise SystemExit(
+            "distribution artifact contains excluded website content: "
+            f"{sample}"
+        )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -38,6 +68,8 @@ def main() -> None:
         if not artifact.name.startswith(prefix):
             raise SystemExit(f"unexpected source filename: {artifact.name}")
         expected_version = artifact.name[len(prefix) : -len(suffix)]
+
+    validate_distribution_contents(artifact, is_wheel=is_wheel)
 
     process_environment = os.environ.copy()
     process_environment.pop("PYTHONHOME", None)
@@ -101,6 +133,10 @@ def main() -> None:
                     "Path(sys.prefix).resolve()); "
                     "classifiers = metadata('nautipy').get_all('Classifier') or []; "
                     "assert 'Typing :: Typed' in classifiers; "
+                    "project_urls = metadata('nautipy').get_all("
+                    "'Project-URL') or []; "
+                    "assert 'Documentation, https://wbk.ing/NautiPy/' "
+                    "in project_urls; "
                     "assert files('nautipy').joinpath('py.typed').is_file(); "
                     "assert 'nautipy.geodesic' not in sys.modules; "
                     "assert 'geographiclib' not in sys.modules; "

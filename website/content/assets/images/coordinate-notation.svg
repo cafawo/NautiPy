@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="coordinate-notation-title coordinate-notation-desc">
+  <title id="coordinate-notation-title">Five coordinate notations describe one position</title>
+  <desc id="coordinate-notation-desc">Decimal degrees, degrees and decimal minutes, degrees minutes seconds, ISO 6709, and NMEA coordinate-field cards all connect to the same marked boat position.</desc>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.card{fill:#fff;stroke:#78909c;stroke-width:2}.heading{fill:#19323c;font:700 18px system-ui,sans-serif}.card-heading{fill:#19323c;font:700 14px system-ui,sans-serif}.value{fill:#075763;font:600 14px ui-monospace,SFMono-Regular,monospace}.note{fill:#4f646d;font:13px system-ui,sans-serif}.route{fill:none;stroke:#087e8b;stroke-width:2.5}.boat{fill:#fff;stroke:#c94f36;stroke-width:4}.water{fill:none;stroke:#55a7b1;stroke-width:2;stroke-dasharray:8 7}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="heading" x="38" y="35">Different notation, same latitude and longitude</text>
+  <g transform="translate(32 53)">
+    <rect class="card" width="438" height="55" rx="10"/>
+    <text class="card-heading" x="15" y="20">Decimal degrees (DD)</text>
+    <text class="value" x="15" y="42">50.127198° N, 8.665562° E</text>
+  </g>
+  <g transform="translate(32 118)">
+    <rect class="card" width="438" height="55" rx="10"/>
+    <text class="card-heading" x="15" y="20">Degrees + decimal minutes (DDM)</text>
+    <text class="value" x="15" y="42">50° 7.6319′ N, 8° 39.9337′ E</text>
+  </g>
+  <g transform="translate(32 183)">
+    <rect class="card" width="438" height="55" rx="10"/>
+    <text class="card-heading" x="15" y="20">Degrees, minutes, seconds (DMS)</text>
+    <text class="value" x="15" y="42">50° 7′ 37.91″ N, 8° 39′ 56.02″ E</text>
+  </g>
+  <g transform="translate(32 248)">
+    <rect class="card" width="438" height="55" rx="10"/>
+    <text class="card-heading" x="15" y="20">ISO 6709 signed representation</text>
+    <text class="value" x="15" y="42">+50.127198+008.665562/</text>
+  </g>
+  <g transform="translate(32 313)">
+    <rect class="card" width="438" height="55" rx="10"/>
+    <text class="card-heading" x="15" y="20">NMEA coordinate fields</text>
+    <text class="value" x="15" y="42">5007.6319,N,00839.9337,E</text>
+  </g>
+  <path class="route" d="M470 81 C523 81 526 199 572 207"/>
+  <path class="route" d="M470 146 C516 146 528 203 572 210"/>
+  <path class="route" d="M470 211 H572"/>
+  <path class="route" d="M470 276 C516 276 528 219 572 212"/>
+  <path class="route" d="M470 341 C523 341 526 223 572 215"/>
+  <g transform="translate(650 214)">
+    <path class="water" d="M-96 51 Q-68 35-40 51 T16 51 T72 51"/>
+    <path class="boat" d="M-36 12 L0-34 L36 12 Z M-50 19 Q0 48 50 19"/>
+    <circle cx="0" cy="0" r="5" fill="#c94f36"/>
+    <text class="heading" x="-57" y="88">one Position</text>
+  </g>
+  <text class="note" x="34" y="405">Precision in written digits is not the same as real-world measurement accuracy.</text>
+</svg>

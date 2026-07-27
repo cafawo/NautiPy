@@ -100,6 +100,34 @@ python -m pip check
 python -m unittest discover -s tests -v
 ```
 
+## Work on the educational website
+
+The public learning site is maintained under `website/` and deployed through
+GitHub Pages. Start from an editable NautiPy installation, then install its
+separate, pinned documentation toolchain:
+
+```console
+python -m pip install --requirement website/requirements.txt
+python website/tools/generate_fix_lab.py --check
+python -m unittest discover -s website/tests -v
+python -m mkdocs build --clean --strict --config-file website/mkdocs.yml
+```
+
+The fixture check recomputes the Fix Lab scenarios through NautiPy's public API
+and fails if the committed data is stale. The site tests check examples,
+internal links, figures, and generated scenarios. The strict build checks
+navigation and site configuration. For a local preview, run:
+
+```console
+python -m mkdocs serve --config-file website/mkdocs.yml
+```
+
+Generated site output is written to the ignored `website/site/` directory.
+Everything below `website/` is excluded from the wheel and source distribution,
+so site figures and interactive assets do not increase a `pip` installation.
+Documentation dependencies belong only in `website/requirements.txt`; do not
+add them to the project's runtime dependencies.
+
 ## Check distributions before review
 
 Before requesting review, build and test the installable artifacts. These

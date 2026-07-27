@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
+from io import BytesIO
 from io import StringIO
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 from tempfile import TemporaryDirectory
 import unittest
 from urllib.error import HTTPError, URLError
+import zipfile
 
-from scripts import release
+from scripts import release, smoke_test_artifact
 
 
 class ReleaseVersionTests(unittest.TestCase):
@@ -343,6 +346,61 @@ class ReleaseArtifactTests(unittest.TestCase):
             release.verify_checksums(artifacts, self.checksums)
 
 
+class DistributionContentTests(unittest.TestCase):
+    def test_accepts_distributions_without_website_content(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            wheel = directory / "nautipy-0.1.0-py3-none-any.whl"
+            sdist = directory / "nautipy-0.1.0.tar.gz"
+            with zipfile.ZipFile(wheel, mode="w") as archive:
+                archive.writestr("nautipy/__init__.py", "")
+            with tarfile.open(sdist, mode="w:gz") as archive:
+                self._add_tar_text(
+                    archive,
+                    "nautipy-0.1.0/src/nautipy/__init__.py",
+                )
+
+            smoke_test_artifact.validate_distribution_contents(
+                wheel,
+                is_wheel=True,
+            )
+            smoke_test_artifact.validate_distribution_contents(
+                sdist,
+                is_wheel=False,
+            )
+
+    def test_rejects_website_content_in_wheel_or_sdist(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            wheel = directory / "nautipy-0.1.0-py3-none-any.whl"
+            sdist = directory / "nautipy-0.1.0.tar.gz"
+            with zipfile.ZipFile(wheel, mode="w") as archive:
+                archive.writestr("website/assets/boat.svg", "<svg/>")
+            with tarfile.open(sdist, mode="w:gz") as archive:
+                self._add_tar_text(
+                    archive,
+                    "nautipy-0.1.0/website/content/index.md",
+                )
+
+            for artifact, is_wheel in ((wheel, True), (sdist, False)):
+                with self.subTest(artifact=artifact.name):
+                    with self.assertRaisesRegex(
+                        SystemExit,
+                        "excluded website content",
+                    ):
+                        smoke_test_artifact.validate_distribution_contents(
+                            artifact,
+                            is_wheel=is_wheel,
+                        )
+
+    @staticmethod
+    def _add_tar_text(archive: tarfile.TarFile, name: str) -> None:
+        data = b"content"
+        member = tarfile.TarInfo(name)
+        member.size = len(data)
+        archive.addfile(member, BytesIO(data))
+
+
 class ReleaseCommandTests(unittest.TestCase):
     def test_validate_writes_workflow_outputs_and_release_notes(self) -> None:
         with TemporaryDirectory() as temporary_directory:
@@ -448,10 +506,95 @@ class ReleaseWorkflowTests(unittest.TestCase):
             "test",
             "minimum-dependencies",
             "cross-platform-smoke",
+            "documentation",
             "build",
         ):
             with self.subTest(job=job):
                 self.assertIn(f"${{{{ needs.{job}.result }}}}", aggregate)
+
+    def test_ci_builds_docs_and_deploys_only_gated_master_pushes(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        workflow = root / ".github/workflows/ci.yml"
+        requirements = root / "website/requirements.txt"
+        if not workflow.is_file() or not requirements.is_file():
+            self.skipTest(
+                "website source and repository workflows are excluded from "
+                "package distributions"
+            )
+
+        text = workflow.read_text(encoding="utf-8")
+        documentation = text.split("  documentation:\n", 1)[1]
+        documentation = documentation.split("\n  build:", 1)[0]
+        self.assertIn(
+            "python -m pip install --requirement website/requirements.txt",
+            documentation,
+        )
+        self.assertIn(
+            "python website/tools/generate_fix_lab.py --check",
+            documentation,
+        )
+        self.assertIn(
+            "python -m unittest discover -s website/tests -v",
+            documentation,
+        )
+        self.assertIn(
+            "node --check website/content/assets/javascripts/fix-lab.js",
+            documentation,
+        )
+        self.assertIn("actions/setup-node@", documentation)
+        self.assertIn('node-version: "24"', documentation)
+        self.assertIn("python -m mkdocs build --clean --strict", documentation)
+        self.assertIn("--config-file website/mkdocs.yml", documentation)
+        self.assertIn("pages: read", documentation)
+        self.assertIn("actions/configure-pages@", documentation)
+        self.assertIn("actions/upload-pages-artifact@", documentation)
+        self.assertLess(
+            documentation.index("actions/configure-pages@"),
+            documentation.index("actions/upload-pages-artifact@"),
+        )
+        self.assertIn("path: website/site", documentation)
+        self.assertEqual(
+            requirements.read_text(encoding="utf-8").strip(),
+            "mkdocs-material==9.7.7",
+        )
+
+        deployment = text.split("  deploy-pages:\n", 1)[1]
+        self.assertIn(
+            "github.event_name == 'push' && "
+            "github.ref == 'refs/heads/master'",
+            deployment,
+        )
+        self.assertIn("- documentation", deployment)
+        self.assertIn("- ci-success", deployment)
+        self.assertIn("pages: write", deployment)
+        self.assertIn("id-token: write", deployment)
+        self.assertNotIn("contents: write", deployment)
+        self.assertNotIn("actions/configure-pages@", deployment)
+        self.assertIn("actions/deploy-pages@", deployment)
+        self.assertIn("https://wbk.ing/NautiPy/", deployment)
+        self.assertIn("https://cafawo.github.io/NautiPy/", deployment)
+        self.assertIn("--fail", deployment)
+        self.assertIn("--location", deployment)
+        self.assertIn('--write-out "%{http_code}"', deployment)
+        self.assertIn('[[ "$status" != "200" ]]', deployment)
+
+    def test_website_is_linked_but_excluded_from_distributions(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        manifest = root / "MANIFEST.in"
+        pyproject = root / "pyproject.toml"
+        if not manifest.is_file() or not pyproject.is_file():
+            self.skipTest("packaging sources are unavailable")
+
+        self.assertRegex(
+            manifest.read_text(encoding="utf-8"),
+            r"(?m)^prune website$",
+        )
+        text = pyproject.read_text(encoding="utf-8")
+        self.assertIn(
+            'Documentation = "https://wbk.ing/NautiPy/"',
+            text,
+        )
+        self.assertNotIn("mkdocs", text.lower())
 
     def test_ci_pins_every_declared_minimum_dependency_exactly(self) -> None:
         workflow = (

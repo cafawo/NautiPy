@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="uncertainty-title uncertainty-desc">
+  <title id="uncertainty-title">A local 95 percent uncertainty ellipse summarizes two-dimensional precision</title>
+  <desc id="uncertainty-desc">An elongated ellipse surrounds a boat on east and north axes. Its semi-major and semi-minor axes and major-axis true bearing are labeled. A prominent note says it is local, linearized, and not a safety bound.</desc>
+  <defs>
+    <marker id="axis-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#78909c"/>
+    </marker>
+  </defs>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.title{fill:#19323c;font:700 19px system-ui,sans-serif}.label{fill:#19323c;font:600 15px system-ui,sans-serif}.note{fill:#4f646d;font:14px system-ui,sans-serif}.axes{stroke:#78909c;stroke-width:2;marker-end:url(#axis-arrow)}.ellipse{fill:#6c5ce71f;stroke:#6c5ce7;stroke-width:4}.major{stroke:#c94f36;stroke-width:4}.minor{stroke:#087e8b;stroke-width:4}.bearing{fill:none;stroke:#a66a00;stroke-width:3}.boat{fill:#fff;stroke:#19323c;stroke-width:4}.callout{fill:#fff5dc;stroke:#a66a00;stroke-width:2}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="title" x="38" y="42">The uncertainty ellipse has a direction and a scale</text>
+  <line class="axes" x1="82" y1="336" x2="710" y2="336"/>
+  <line class="axes" x1="118" y1="378" x2="118" y2="79"/>
+  <text class="label" x="720" y="342">E</text>
+  <text class="label" x="109" y="68">N</text>
+  <g transform="rotate(-32 405 226)">
+    <ellipse class="ellipse" cx="405" cy="226" rx="213" ry="83"/>
+    <line class="major" x1="192" y1="226" x2="618" y2="226"/>
+    <line class="minor" x1="405" y1="143" x2="405" y2="309"/>
+  </g>
+  <path class="bearing" d="M405 226 L405 112 M405 226 Q452 161 516 165"/>
+  <text class="label" x="508" y="146">major-axis true bearing</text>
+  <text class="label" x="510" y="274">semi-major 95%</text>
+  <text class="label" x="239" y="205">semi-minor 95%</text>
+  <g class="boat" transform="translate(405 226)">
+    <path d="M-12 8 L0-14 L12 8 Z M-17 13 Q0 23 17 13"/>
+  </g>
+  <g transform="translate(210 364)">
+    <rect class="callout" width="420" height="45" rx="10"/>
+    <text class="label" x="210" y="28" text-anchor="middle">Local and linearized · not a safety bound</text>
+  </g>
+</svg>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" role="img" aria-labelledby="coordinate-order-title coordinate-order-desc">
+  <title id="coordinate-order-title">The same raw coordinate pair changes place when its order changes</title>
+  <desc id="coordinate-order-desc">The raw pair 50.1272, 8.6656 is interpreted first as latitude-longitude and points to the Frankfurt area, then as longitude-latitude and points to a clearly different place. A warning says never silently swap the values.</desc>
+  <style>
+    .bg{fill:#f7fbfc;stroke:#b9ccd1;stroke-width:2}.card{fill:#fff;stroke:#78909c;stroke-width:2}.title{fill:#19323c;font:700 19px system-ui,sans-serif}.label{fill:#19323c;font:600 15px system-ui,sans-serif}.code{fill:#075763;font:700 18px ui-monospace,SFMono-Regular,monospace}.small{fill:#4f646d;font:14px system-ui,sans-serif}.lat{stroke:#087e8b}.lon{stroke:#c94f36}.guide{fill:none;stroke-width:4}.place{fill:#fff;stroke-width:4}.warn{fill:#fff5dc;stroke:#a66a00;stroke-width:2}
+  </style>
+  <rect class="bg" x="2" y="2" width="796" height="426" rx="18"/>
+  <text class="title" x="38" y="42">Order carries meaning</text>
+  <g transform="translate(34 72)">
+    <rect class="card" width="342" height="116" rx="12"/>
+    <text class="label" x="18" y="28">Human / NautiPy pair</text>
+    <text class="code" x="18" y="61">(<tspan fill="#087e8b">50.1272</tspan>, <tspan fill="#c94f36">8.6656</tspan>)</text>
+    <text class="small" x="18" y="91">latitude, longitude</text>
+  </g>
+  <g transform="translate(424 72)">
+    <rect class="card" width="342" height="116" rx="12"/>
+    <text class="label" x="18" y="28">Same raw pair as longitude, latitude</text>
+    <text class="code" x="18" y="61">[<tspan fill="#c94f36">50.1272</tspan>, <tspan fill="#087e8b">8.6656</tspan>]</text>
+    <text class="small" x="18" y="91">valid numbers, different meaning</text>
+  </g>
+  <path class="guide lat" d="M134 188 C134 229 197 230 221 276"/>
+  <path class="guide lon" d="M261 188 C261 221 248 239 235 276"/>
+  <path class="guide lon" d="M516 188 C516 229 579 230 603 276"/>
+  <path class="guide lat" d="M644 188 C644 221 631 239 617 276"/>
+  <g transform="translate(228 302)">
+    <circle class="place lat" cx="0" cy="0" r="23" fill="#fff"/>
+    <path d="M-8 6 L0-10 L8 6 Z" fill="#087e8b"/>
+    <text class="label" x="-66" y="51">Frankfurt area</text>
+  </g>
+  <g transform="translate(610 302)">
+    <rect class="place lon" x="-21" y="-21" width="42" height="42" rx="5" fill="#fff"/>
+    <path d="M-10 -10 L10 10 M10 -10 L-10 10" stroke="#c94f36" stroke-width="4"/>
+    <text class="label" x="-55" y="51">different place</text>
+  </g>
+  <g transform="translate(183 372)">
+    <rect class="warn" width="434" height="42" rx="10"/>
+    <text class="label" x="217" y="27" text-anchor="middle">Never silently swap latitude and longitude.</text>
+  </g>
+</svg>

@@ -1,3 +1,4 @@
+prune website
 include AGENTS.md CHANGELOG.md CODE_OF_CONDUCT.md CONTRIBUTING.md ROADMAP.md SECURITY.md
 recursive-include docs *.md
 recursive-include scripts *.py

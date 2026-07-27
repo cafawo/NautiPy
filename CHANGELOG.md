@@ -4,6 +4,12 @@ Notable user-facing changes to NautiPy are recorded here.
 
 ## Unreleased
 
+### Added
+
+- Added an education-first GitHub Pages site with original diagrams, a
+  verified-data Fix Lab, scientific references, and automated deployment,
+  while keeping every website asset out of PyPI distributions.
+
 ## 0.1.0 - 2026-07-27
 
 ### Added

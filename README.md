@@ -119,7 +119,12 @@ route planner, live-data client, or certified navigation system.
 
 ## Documentation
 
-For using NautiPy:
+The [NautiPy educational guide](https://wbk.ing/NautiPy/) explains coordinate
+notation, ellipsoidal navigation, bearing and range fixes, uncertainty, and
+how the package fits those ideas together. It includes original diagrams and
+an interactive Fix Lab.
+
+The exact behavior specifications remain in the repository:
 
 - [Coordinate input and conversion](https://github.com/cafawo/NautiPy/blob/master/docs/COORDINATES.md)
 - [WGS84 navigation](https://github.com/cafawo/NautiPy/blob/master/docs/NAVIGATION.md)

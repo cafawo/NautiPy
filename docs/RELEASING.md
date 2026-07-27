@@ -91,6 +91,20 @@ commit:
 TestPyPI is optional. Use it only for a specific check not already provided by
 the clean artifact tests.
 
+## One-time documentation hosting setup
+
+GitHub Pages is deployed by the normal CI workflow, independently of package
+releases. In the repository's **Settings → Pages → Build and deployment**,
+select **GitHub Actions** as the source. The workflow's restricted
+`GITHUB_TOKEN` deliberately cannot make this repository-level setting.
+
+The `wbk.ing` custom domain belongs to the `cafawo.github.io` user site, so this
+project inherits `https://wbk.ing/NautiPy/`. Do not add a project-specific
+`CNAME` file. After the first successful `master` deployment, confirm that both
+`https://wbk.ing/NautiPy/` and `https://cafawo.github.io/NautiPy/` resolve; the
+CI deployment job follows redirects and requires a successful response from
+both URLs.
+
 ## Prepare the release commit
 
 Prepare the release on an up-to-date default branch. A sole maintainer may

@@ -40,7 +40,7 @@ nautipy = "nautipy.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/cafawo/NautiPy"
-Documentation = "https://github.com/cafawo/NautiPy#readme"
+Documentation = "https://wbk.ing/NautiPy/"
 Issues = "https://github.com/cafawo/NautiPy/issues"
 Source = "https://github.com/cafawo/NautiPy"
 Changelog = "https://github.com/cafawo/NautiPy/blob/master/CHANGELOG.md"

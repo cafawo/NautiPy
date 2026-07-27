@@ -161,5 +161,12 @@ The NautiPy wheel itself is platform-independent; NumPy and SciPy may install
 platform-specific dependency wheels. The `nautipy` console entry point uses the
 standard-library CLI implementation.
 
+The educational website source lives under `website/` and is deployed as a
+separate GitHub Pages artifact. It is explicitly pruned from both the wheel and
+source distribution, and artifact smoke tests enforce that boundary. MkDocs,
+theme packages, generated HTML, SVG figures, CSS, and JavaScript are therefore
+not installed with NautiPy and are not runtime dependencies. The package
+metadata contains only a link to the published documentation.
+
 Build and release procedure belongs in [RELEASING.md](RELEASING.md). Supported
 API and versioning policy belongs in [SUPPORT.md](SUPPORT.md).
