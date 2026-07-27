@@ -4,7 +4,7 @@ This roadmap describes what remains to be done. Completed implementation detail
 belongs in [CHANGELOG.md](CHANGELOG.md) and the Git history, not in a second
 historical checklist.
 
-NautiPy 0.1.0 was published on July 27, 2026. Published releases and their
+NautiPy 0.2.0 was published on July 27, 2026. Published releases and their
 documented public APIs and behavior are governed by the compatibility contract
 in [docs/SUPPORT.md](docs/SUPPORT.md).
 
@@ -57,6 +57,11 @@ The release workflow verified that clean environments can install the tested
 wheel and source distribution, import the top-level coordinate, navigation,
 and fixing API, and pass dependency consistency checks.
 
+## Current release: 0.2.0 (complete)
+
+NautiPy 0.2.0 was published on PyPI and as a matching GitHub Release on July
+27, 2026. See [CHANGELOG.md](CHANGELOG.md) for its user-facing changes.
+
 ## Distribution policy
 
 PyPI is NautiPy's only maintained package index. Matching tested artifacts are
@@ -77,10 +82,10 @@ Patch releases should concentrate on evidence-backed maintenance:
 Patch releases must not intentionally break documented behavior or broaden the
 project into general GIS or live navigation.
 
-## Version 0.2.x
+## Further version 0.2.x releases
 
-Minor pre-1.0 releases may refine the public API when real use demonstrates a
-clear benefit. Priorities are:
+Further minor pre-1.0 releases may refine the public API when real use
+demonstrates a clear benefit. Priorities are:
 
 - simplify common coordinate and fixing workflows;
 - resolve documented ambiguities without silent guessing;
