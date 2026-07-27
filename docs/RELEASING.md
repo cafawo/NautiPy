@@ -49,9 +49,18 @@ public APIs follow semantic versioning. The full compatibility policy is in
 These settings live on PyPI and GitHub and cannot be established by a repository
 commit:
 
-1. Confirm that the normalized PyPI project name `nautipy` is controlled by the
-   maintainers, or configure a pending Trusted Publisher for the first release.
-2. Configure this exact Trusted Publisher identity:
+1. In the PyPI account settings, verify the maintainer email address, enable
+   two-factor authentication, and securely store recovery codes.
+2. In the GitHub repository, open **Settings → Environments**, create an
+   environment named exactly `pypi`, and select **Selected branches and tags**
+   under its deployment rules. Add a tag rule for `v*`. A required maintainer
+   reviewer is recommended when the repository and account plan support it.
+   A sole maintainer must not enable **Prevent self-review** unless another
+   eligible reviewer is available.
+   Do not add a PyPI password, API token, environment secret, or variable.
+3. If the `nautipy` project does not exist on PyPI yet, open **Publishing**
+   from the PyPI account sidebar and add a pending **GitHub Actions** publisher
+   with this exact identity:
 
    ```text
    PyPI project: nautipy
@@ -61,13 +70,21 @@ commit:
    Environment: pypi
    ```
 
-3. Create a protected GitHub environment named `pypi`. Restrict deployment to
-   release tags and require maintainer approval when appropriate.
+   Enter only the workflow filename, not `.github/workflows/release.yml`.
+   Names are case-sensitive and must match the repository and workflow. A
+   pending publisher creates the PyPI project on its first successful upload;
+   it does not reserve the project name beforehand. If the project already
+   exists and is controlled by the maintainers, configure the same identity
+   from that project's **Manage → Publishing** page instead.
 4. Protect the default branch and require the always-running `CI success` check.
    Requiring only a dependent job is insufficient because it may be skipped
    after an upstream failure.
-5. Allow the release workflow's narrowly scoped OIDC and GitHub Release
-   permissions. Do not add a stored PyPI token.
+5. Under **Settings → Actions → General**, ensure Actions are enabled and, if
+   an action allowlist is used, permit the pinned `actions/*` actions and
+   `pypa/gh-action-pypi-publish`. Keep the repository's default workflow
+   permissions read-only; the workflow grants only job-scoped permissions:
+   `id-token: write` for PyPI and `contents: write` for the GitHub Release. Do
+   not add a stored PyPI token.
 6. Update the identity above if the repository owner, repository name, workflow
    filename, or environment ever changes.
 
@@ -217,37 +234,24 @@ After PyPI publication:
 - rerun only the failed downstream GitHub Release work when the published
   artifacts are sound;
 - yank a broken PyPI release when appropriate;
-- publish a corrected patch release; and
-- follow conda-forge's process for any already-published downstream build.
+- publish a corrected patch release.
 
 The workflow must fail on mismatched versions, duplicate uploads, unexpected
 artifacts, checksum mismatches, or failed artifact tests.
 
-## Conda-forge follows PyPI
+## Distribution scope
 
-Conda-forge distribution is maintained outside this repository. NautiPy's
-release workflow must not upload directly to it.
-
-After a stable release is available on PyPI:
-
-1. Fork `conda-forge/staged-recipes`.
-2. Add a recipe using the exact published PyPI source distribution and
-   checksum.
-3. Declare the package's Python constraint and GeographicLib, NumPy, and SciPy
-   runtime dependencies.
-4. Use `noarch: python` only when the current conda-forge rules permit it.
-5. Add import and small coordinate, navigation, and fixing tests through the
-   top-level API.
-6. Submit the recipe for review.
-
-After acceptance, conda-forge creates `nautipy-feedstock`; its bot normally
-proposes later version updates. Feedstock maintainers review dependency
-changes, migrations, CI, and bot failures before merging.
+PyPI is NautiPy's only maintained package index. The same tested wheel and
+source distribution are attached to the GitHub Release for each version.
+Other package indexes and downstream redistributions are outside this
+project's release and support scope.
 
 Official references:
 
+- [PyPI account and two-factor help](https://pypi.org/help/)
 - [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/)
+- [Creating a PyPI project with a pending publisher](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
 - [Adding a PyPI publisher](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
 - [Using a PyPI publisher](https://docs.pypi.org/trusted-publishers/using-a-publisher/)
+- [Managing GitHub environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
 - [GitHub Actions for Python](https://docs.github.com/en/actions/tutorials/build-and-test-code/python)
-- [Adding packages to conda-forge](https://conda-forge.org/docs/maintainer/adding_pkgs/)

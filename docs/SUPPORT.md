@@ -53,8 +53,8 @@ advisories identify affected versions and any exceptional backport explicitly.
 ## Python versions and platforms
 
 The authoritative Python range is the `requires-python` value in
-`pyproject.toml`. Classifiers, dependency constraints, CI, built metadata, and
-conda-forge metadata must agree with it. Prose documentation deliberately does
+`pyproject.toml`. Classifiers, dependency constraints, CI, built artifacts,
+and PyPI metadata must agree with it. Prose documentation deliberately does
 not duplicate the range.
 
 Every supported Python version receives the complete test suite with normally

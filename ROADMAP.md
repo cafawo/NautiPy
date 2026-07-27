@@ -58,19 +58,12 @@ The release is complete only when a clean environment can install
 `nautipy==0.1.0`, import the top-level coordinate, navigation, and fixing API,
 and pass dependency consistency checks.
 
-## Post-release distribution
+## Distribution policy
 
-After the stable `0.1.0` source distribution is available on PyPI:
-
-- submit a conda-forge staged-recipes recipe built from that exact source
-  distribution and checksum;
-- declare the same Python and runtime dependency constraints; and
-- exercise coordinate, navigation, and fixing behavior through top-level
-  imports.
-
-Conda-forge submission follows the PyPI release. It is not a prerequisite for
-tagging or publishing `0.1.0`, and NautiPy's release workflow must not upload
-directly to conda-forge.
+PyPI is NautiPy's only maintained package index. Matching tested artifacts are
+also attached to each GitHub Release. Other package indexes and downstream
+redistributions are outside the current roadmap and must not be added without
+an explicit product-direction change.
 
 ## Version 0.1.x
 
@@ -105,7 +98,7 @@ Version 1.0 is ready when maintainers can:
 - document all supported input, output, error, and diagnostic behavior;
 - justify numerical tolerances against the reference corpus;
 - confirm the supported Python and platform policy in CI;
-- align PyPI and conda-forge metadata; and
+- keep PyPI metadata, release artifacts, and documentation aligned; and
 - maintain the package without compatibility layers for accidental internals.
 
 ## Continuing non-goals

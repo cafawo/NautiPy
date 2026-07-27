@@ -71,6 +71,9 @@ product-direction change.
 - Do not perform network access during import or ordinary calculations.
 - Prefer standard-library `unittest` unless a concrete need justifies another
   test dependency.
+- PyPI is the only maintained package index. Do not create, submit, or
+  maintain conda or conda-forge recipes or feedstocks unless the product's
+  distribution policy is explicitly changed.
 
 ## Working method
 
