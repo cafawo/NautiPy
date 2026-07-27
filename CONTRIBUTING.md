@@ -81,6 +81,45 @@ Read the specification related to your change:
 - [Architecture and dependencies](docs/ARCHITECTURE.md)
 - [Support and public API](docs/SUPPORT.md)
 
+## Plan the documentation impact
+
+Public functionality and its documentation are one change. Before
+implementation, identify both the authoritative specification and the
+educational page that will need to change. Public functionality includes
+accepted inputs, outputs, exceptions, units, defaults, diagnostics, public
+names, CLI and GeoJSON behavior, dependency expectations, and documented
+limitations.
+
+The main routes are:
+
+- coordinates and positions: `docs/COORDINATES.md` and
+  `website/content/learn/coordinates.md`;
+- WGS84 navigation: `docs/NAVIGATION.md` and
+  `website/content/learn/navigation.md`;
+- observation conventions and candidate geometry: `docs/FIXES.md` and
+  `website/content/learn/finding-the-boat.md`;
+- solver diagnostics, weighting, and uncertainty: `docs/FIXES.md` and
+  `website/content/learn/trusting-a-fix.md`;
+- scenario semantics or teaching fixtures: `docs/FIXES.md` and the Fix Lab
+  page, `website/tools/generate_fix_lab.py`, and committed data;
+- GeoJSON: `docs/GEOJSON.md`, plus
+  `website/content/learn/coordinates.md` for order concepts or
+  `website/content/practical-use.md` for interchange recipes;
+- CLI behavior: the relevant specification, README example, and Practical
+  Use; and
+- installation, dependencies, API support, architecture, or scope: the
+  applicable project metadata, `docs/ARCHITECTURE.md`, `docs/SUPPORT.md`,
+  `docs/PRODUCT.md`, behavior specification, README, and affected home, How
+  NautiPy Works, or Practical Use page.
+
+Update examples, diagrams, glossary entries, and generated Fix Lab fixtures
+when their lesson changes. Record user-visible release changes in
+`CHANGELOG.md`.
+
+A private refactor with identical observable behavior does not need a
+meaningless documentation edit. Its pull request must instead say
+`Documentation impact: none` and explain why users cannot observe the change.
+
 ## Add meaningful tests
 
 Use standard-library `unittest` unless a concrete need justifies another test
@@ -158,14 +197,17 @@ A useful pull request explains:
 - examples or independent reference data;
 - tests and commands run;
 - public API or runtime dependency effects;
+- the exact behavior specification and educational pages updated, or a
+  concrete explanation of why documentation is unaffected;
 - numerical assumptions, units, and tolerances; and
 - known limitations.
 
-Update public examples and documentation whenever behavior changes. Keep
-third-party objects behind NautiPy result types, use descriptive exceptions
-for caller errors, and never silently change coordinate order, Earth model, or
-units. Before version 1.0, prefer a clean correction over a compatibility layer
-for behavior that has never been publicly released.
+Do not merge a public functionality change with only tests or a specification
+updated while the educational website remains stale. Keep third-party objects
+behind NautiPy result types, use descriptive exceptions for caller errors, and
+never silently change coordinate order, Earth model, or units. Before version
+1.0, prefer a clean correction over a compatibility layer for behavior that
+has never been publicly released.
 
 Pull requests never publish packages. Maintainers create intentional release
 tags according to the [release procedure](docs/RELEASING.md).

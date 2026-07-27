@@ -37,6 +37,12 @@ approaches you considered.
 Note any proposed public names, units, ambiguity rules, numerical assumptions,
 runtime dependencies, or compatibility effects.
 
+## Documentation and teaching impact
+
+Identify the behavior specification and educational page that should explain
+the feature. Note any example, diagram, glossary entry, or Fix Lab scenario
+that would help users understand it.
+
 ## Additional context
 
 Include sample data, references, or related issues. Use synthetic positions

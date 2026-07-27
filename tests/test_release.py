@@ -596,6 +596,45 @@ class ReleaseWorkflowTests(unittest.TestCase):
         )
         self.assertNotIn("mkdocs", text.lower())
 
+    def test_contribution_workflows_require_documentation_impact(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        agent_guide = root / "AGENTS.md"
+        contributor_guide = root / "CONTRIBUTING.md"
+        pull_request_template = root / ".github/PULL_REQUEST_TEMPLATE.md"
+        feature_template = root / ".github/ISSUE_TEMPLATE/feature_request.md"
+        paths = (
+            agent_guide,
+            contributor_guide,
+            pull_request_template,
+            feature_template,
+        )
+        if any(not path.is_file() for path in paths):
+            self.skipTest(
+                "repository contribution templates are not shipped in the "
+                "source archive"
+            )
+
+        agent_text = agent_guide.read_text(encoding="utf-8")
+        self.assertIn("## Documentation impact", agent_text)
+        self.assertIn("Documentation impact: none", agent_text)
+        self.assertIn("authoritative behavior", agent_text)
+        self.assertIn("educational website", agent_text)
+
+        contributor_text = contributor_guide.read_text(encoding="utf-8")
+        self.assertIn("## Plan the documentation impact", contributor_text)
+        self.assertIn("Documentation impact: none", contributor_text)
+        self.assertIn("website/content/learn/coordinates.md", contributor_text)
+        self.assertIn("website/content/learn/navigation.md", contributor_text)
+
+        pull_request_text = pull_request_template.read_text(encoding="utf-8")
+        self.assertIn("## Documentation impact", pull_request_text)
+        self.assertIn("Documentation impact: none", pull_request_text)
+        self.assertIn("educational website material", pull_request_text)
+        self.assertIn("strict MkDocs build", pull_request_text)
+
+        feature_text = feature_template.read_text(encoding="utf-8")
+        self.assertIn("## Documentation and teaching impact", feature_text)
+
     def test_ci_pins_every_declared_minimum_dependency_exactly(self) -> None:
         workflow = (
             Path(__file__).resolve().parents[1]
